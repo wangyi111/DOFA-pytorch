@@ -9,10 +9,15 @@ from foundation_models import (
     DofaModel,
     SatMAEModel,
     AnySatModel,
+    DofaSModel,
 )
 from datasets.geobench_wrapper import GeoBenchDataset
 from datasets.resisc_wrapper import Resics45Dataset
 from datasets.benv2_wrapper import BenV2Dataset
+from datasets.senbench_clouds2_wrapper import SenBenchCloudS2Dataset
+from datasets.senbench_eurosats2_wrapper import SenBenchEuroSATS2Dataset
+from datasets.senbench_eurosats1_wrapper import SenBenchEuroSATS1Dataset
+
 
 model_registry = {
     "croma": CromaModel,
@@ -25,6 +30,7 @@ model_registry = {
     "satmae": SatMAEModel,
     "anysat": AnySatModel,
     # Add other model mappings here
+    "dofas": DofaSModel,
 }
 
 dataset_registry = {
@@ -32,6 +38,9 @@ dataset_registry = {
     "resisc45": Resics45Dataset,
     "benv2": BenV2Dataset,
     # Add other dataset mappings here
+    "senbench_clouds2": SenBenchCloudS2Dataset,
+    "senbench_eurosats2": SenBenchEuroSATS2Dataset,
+    "senbench_eurosats1": SenBenchEuroSATS1Dataset,
 }
 
 

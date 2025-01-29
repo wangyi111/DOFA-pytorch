@@ -1,0 +1,19 @@
+defaults:
+  - base_dataset
+
+dataset_type: senbench_clouds2
+task: segmentation
+dataset_name: senbench_clouds2
+num_classes: 2
+num_channels: 4
+data_path: /home/ge86wof2/sentinelbench/cloud_s2
+band_names: ['B02', 'B03', 'B04', 'B08']
+band_wavelengths: [490, 560, 665, 842]
+band_bandwidths: [65, 35, 30, 115]
+image_resolution: 512
+multilabel: false
+ignore_index: 255
+language_embed: null
+input_mode: spectral
+kernel_size: 16
+key: null # only valid for non-spectral variables

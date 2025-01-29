@@ -46,25 +46,47 @@ class LightningTask(LightningModule):
 
     def training_step(self, batch, batch_idx):
         # current_lr = self.optimizers().param_groups[0]['lr']
-        images, targets = batch
+        if len(batch)==3:
+            images, targets, metas = batch
+        else:
+            images, targets = batch
+            metas = torch.full((images.shape[0], 4), float('nan'))
         targets = targets.long()
-        outputs = self(images)
+        if self.model_config.model_type == dofas:
+            outputs = self(images, meta)
+        else:
+            outputs = self(images)
         loss = self.loss(outputs, targets)
         self.log_metrics(outputs, targets, prefix="train")
         return loss
 
     def validation_step(self, batch, batch_idx):
-        images, targets = batch
+        if len(batch)==3:
+            images, targets, metas = batch
+        else:
+            images, targets = batch
+            metas = torch.full((images.shape[0], 4), float('nan'))
+
         targets = targets.long()
-        outputs = self(images)
+        if self.model_config.model_type == dofas:
+            outputs = self(images,metas)
+        else:
+            outputs = self(images)
         loss = self.loss(outputs, targets)
         self.log_metrics(outputs, targets, prefix="val")
         return loss
 
     def test_step(self, batch, batch_idx):
-        images, targets = batch
+        if len(batch)==3:
+            images, targets, metas = batch
+        else:
+            images, targets = batch
+            metas = torch.full((images.shape[0], 4), float('nan'))
         targets = targets.long()
-        outputs = self(images)
+        if self.model_config.model_type == dofas:
+            outputs = self(images,metas)
+        else:
+            outputs = self(images)
         loss = self.loss(outputs, targets)
         self.log_metrics(outputs, targets, prefix="test")
         return loss
