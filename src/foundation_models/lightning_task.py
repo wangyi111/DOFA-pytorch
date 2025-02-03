@@ -2,7 +2,7 @@
 
 from lightning import LightningModule
 import torch
-
+import pdb
 
 class LightningTask(LightningModule):
     def __init__(self, args, model_config, data_config):
@@ -51,7 +51,9 @@ class LightningTask(LightningModule):
         else:
             images, targets = batch
             metas = torch.full((images.shape[0], 4), float('nan'))
-        targets = targets.long()
+        #pdb.set_trace()
+        if self.model_config.task != "regression":
+            targets = targets.long()
         if self.model_config.model_type == 'dofas':
             outputs = self(images, metas)
         else:
@@ -67,7 +69,8 @@ class LightningTask(LightningModule):
             images, targets = batch
             metas = torch.full((images.shape[0], 4), float('nan'))
 
-        targets = targets.long()
+        if self.model_config.task != "regression":
+            targets = targets.long()
         if self.model_config.model_type == 'dofas':
             outputs = self(images,metas)
         else:
@@ -82,7 +85,8 @@ class LightningTask(LightningModule):
         else:
             images, targets = batch
             metas = torch.full((images.shape[0], 4), float('nan'))
-        targets = targets.long()
+        if self.model_config.task != "regression":
+            targets = targets.long()
         if self.model_config.model_type == 'dofas':
             outputs = self(images,metas)
         else:

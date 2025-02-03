@@ -2,7 +2,7 @@ defaults:
   - base_model
 
 model_type: dofas
-task: segmentation
+task: regression
 dofa_size: dofa_small
 image_resolution: 224
 embed_dim: 384

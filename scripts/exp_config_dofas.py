@@ -43,14 +43,46 @@ experiments = [
     #     "lr": 0.01,
     #     "epochs": 50,
     # },
+    # {
+    #     "model": "dofas_cls",
+    #     "dataset": "senbench_benv2s2",
+    #     "task": "classification",
+    #     "batch_size": 64,
+    #     "lr": 0.01,
+    #     "epochs": 50,
+    # },
+    # {
+    #     "model": "dofas_cls",
+    #     "dataset": "senbench_lc100s3cls",
+    #     "task": "classification",
+    #     "batch_size": 64,
+    #     "lr": 0.01,
+    #     "epochs": 50,
+    # },
+    # {
+    #     "model": "dofas_seg",
+    #     "dataset": "senbench_lc100s3seg",
+    #     "task": "segmentation",
+    #     "batch_size": 8,
+    #     "lr": 0.001,
+    #     "epochs": 10,
+    # },
+    # {
+    #     "model": "dofas_reg",
+    #     "dataset": "senbench_aqs5pno2",
+    #     "task": "regression",
+    #     "batch_size": 8,
+    #     "lr": 0.001,
+    #     "epochs": 10,
+    # },
     {
-        "model": "dofas_cls",
-        "dataset": "senbench_benv2s2",
-        "task": "classification",
-        "batch_size": 64,
-        "lr": 0.01,
-        "epochs": 50,
-    }
+        "model": "dofas_reg",
+        "dataset": "senbench_aqs5po3",
+        "task": "regression",
+        "batch_size": 8,
+        "lr": 0.001,
+        "epochs": 10,
+    },
 ]
 
 # Run each experiment

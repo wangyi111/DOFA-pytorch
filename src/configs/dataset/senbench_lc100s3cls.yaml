@@ -1,0 +1,29 @@
+defaults:
+  - base_dataset
+
+dataset_type: senbench_lc100s3cls
+task: classification
+dataset_name: senbench_lc100s3cls
+num_classes: 23
+num_channels: 21
+data_path: /home/ge86wof2/sentinelbench/lc100_s3olci
+mode: static
+band_names: [
+  'Oa01_radiance', 'Oa02_radiance', 'Oa03_radiance', 'Oa04_radiance', 'Oa05_radiance', 'Oa06_radiance', 'Oa07_radiance',
+  'Oa08_radiance', 'Oa09_radiance', 'Oa10_radiance', 'Oa11_radiance', 'Oa12_radiance', 'Oa13_radiance', 'Oa14_radiance',
+  'Oa15_radiance', 'Oa16_radiance', 'Oa17_radiance', 'Oa18_radiance', 'Oa19_radiance', 'Oa20_radiance', 'Oa21_radiance']
+band_wavelengths: [
+  400, 412.5, 442.5, 490, 510, 560, 620, 
+  665, 673.75, 681.25, 708.75, 753.75, 761.25, 764.375, 
+  767.5, 778.75, 865, 885, 900, 940, 1029]
+band_bandwidths: [
+  15, 10, 10, 10, 10, 10, 10, 
+  10, 7.5, 7.5, 10, 7.5, 7.5, 3.75, 
+  2.5, 15, 20, 10, 10, 20, 40]
+image_resolution: 96
+multilabel: true
+ignore_index: null
+language_embed: null
+input_mode: spectral
+kernel_size: 8
+key: null # only valid for non-spectral variables

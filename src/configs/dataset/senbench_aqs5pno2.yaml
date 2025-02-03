@@ -1,0 +1,21 @@
+defaults:
+  - base_dataset
+
+dataset_type: senbench_airqualitys5p
+task: regression
+dataset_name: senbench_airqualitys5p
+num_classes: 1
+num_channels: 1
+masknan: true
+data_path: /home/ge86wof2/sentinelbench/airquality_s5p
+modality: no2
+mode: annual
+band_wavelengths: [430]
+band_bandwidths: [60]
+image_resolution: 56
+multilabel: false
+#ignore_index: null
+language_embed: null
+input_mode: variable
+kernel_size: 4
+key: s5p_no2 # only valid for non-spectral variables
