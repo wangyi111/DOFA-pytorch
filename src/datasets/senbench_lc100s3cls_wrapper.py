@@ -113,7 +113,7 @@ class SenBenchLC100S3Cls(NonGeoDataset):
 
 
         self.reference_date = date(1970, 1, 1)
-        self.patch_area = (16*10/1000)**2 # patchsize 16 pix, gsd 10m
+        self.patch_area = (8*300/1000)**2 # patchsize 8 pix, gsd 300m
 
     def __len__(self):
         return len(self.pids)

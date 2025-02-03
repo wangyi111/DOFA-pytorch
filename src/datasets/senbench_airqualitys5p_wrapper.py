@@ -63,7 +63,7 @@ class SenBenchAirQualityS5P(NonGeoDataset):
                 self.pids.append(line.strip())
 
         self.reference_date = date(1970, 1, 1)
-        self.patch_area = (16*10/1000)**2 # patchsize 16 pix, gsd 10m
+        self.patch_area = (4*1)**2 # patchsize 4 pix, gsd 1km
 
     def __len__(self):
         return len(self.pids)
