@@ -15,14 +15,14 @@ warmup_epochs=$7
 num_gpus=$(echo $CUDA_VISIBLE_DEVICES | tr ',' '\n' | wc -l)
 
 python src/main.py \
---output_dir logs/"${model}_${dataset}" \
---model $model \
---dataset $dataset \
---task $task \
---num_gpus $num_gpus \
---num_workers 8 \
---batch_size $batch_size \
---epochs $epochs \
---lr $lr \
---warmup_epochs ${warmup_epochs:-0} \
---seed 42
+output_dir=logs/"${model}_${dataset}" \
+model=$model \
+dataset=$dataset \
+task=$task \
+num_gpus=$num_gpus \
+num_workers=0 \
+batch_size=$batch_size \
+epochs=$epochs \
+lr=$lr \
+warmup_epochs=${warmup_epochs:-0} \
+seed=42

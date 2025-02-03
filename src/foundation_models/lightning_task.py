@@ -52,8 +52,8 @@ class LightningTask(LightningModule):
             images, targets = batch
             metas = torch.full((images.shape[0], 4), float('nan'))
         targets = targets.long()
-        if self.model_config.model_type == dofas:
-            outputs = self(images, meta)
+        if self.model_config.model_type == 'dofas':
+            outputs = self(images, metas)
         else:
             outputs = self(images)
         loss = self.loss(outputs, targets)
@@ -68,7 +68,7 @@ class LightningTask(LightningModule):
             metas = torch.full((images.shape[0], 4), float('nan'))
 
         targets = targets.long()
-        if self.model_config.model_type == dofas:
+        if self.model_config.model_type == 'dofas':
             outputs = self(images,metas)
         else:
             outputs = self(images)
@@ -83,7 +83,7 @@ class LightningTask(LightningModule):
             images, targets = batch
             metas = torch.full((images.shape[0], 4), float('nan'))
         targets = targets.long()
-        if self.model_config.model_type == dofas:
+        if self.model_config.model_type == 'dofas':
             outputs = self(images,metas)
         else:
             outputs = self(images)

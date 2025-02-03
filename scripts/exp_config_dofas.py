@@ -27,14 +27,30 @@ experiments = [
     #     "lr": 0.05,
     #     "epochs": 50,
     # },   
+    # {
+    #     "model": "dofas_cls",
+    #     "dataset": "senbench_eurosats1",
+    #     "task": "classification",
+    #     "batch_size": 64,
+    #     "lr": 0.01,
+    #     "epochs": 50,
+    # },      
+    # {
+    #     "model": "dofas_cls",
+    #     "dataset": "senbench_benv2s1",
+    #     "task": "classification",
+    #     "batch_size": 64,
+    #     "lr": 0.01,
+    #     "epochs": 50,
+    # },
     {
         "model": "dofas_cls",
-        "dataset": "senbench_eurosats1",
+        "dataset": "senbench_benv2s2",
         "task": "classification",
         "batch_size": 64,
         "lr": 0.01,
         "epochs": 50,
-    },      
+    }
 ]
 
 # Run each experiment

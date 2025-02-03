@@ -1,0 +1,20 @@
+defaults:
+  - base_dataset
+
+dataset_type: senbench_benv2
+task: classification
+dataset_name: senbench_benv2
+num_classes: 19
+num_channels: 12
+data_path: /home/ge86wof2/sentinelbench/bigearthnetv2_s1s2
+bands: s2
+band_names: ['B01', 'B02', 'B03', 'B04', 'B05', 'B06', 'B07', 'B08', 'B8A', 'B09', 'B11', 'B12']
+band_wavelengths: [440, 490, 560, 665, 705, 740, 783, 842, 860, 940, 1610, 2190]
+band_bandwidths: [20, 65, 35, 30, 15, 15, 20, 115, 20, 20, 90, 180]
+image_resolution: 224
+multilabel: true
+ignore_index: null
+language_embed: null
+input_mode: spectral
+kernel_size: 16
+key: null # only valid for non-spectral variables

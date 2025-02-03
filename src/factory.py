@@ -4,7 +4,7 @@ from foundation_models import (
     CromaModel,
     ScaleMAEModel,
     GFMModel,
-    DinoV2Model,
+    #DinoV2Model,
     SoftConModel,
     DofaModel,
     SatMAEModel,
@@ -17,6 +17,7 @@ from datasets.benv2_wrapper import BenV2Dataset
 from datasets.senbench_clouds2_wrapper import SenBenchCloudS2Dataset
 from datasets.senbench_eurosats2_wrapper import SenBenchEuroSATS2Dataset
 from datasets.senbench_eurosats1_wrapper import SenBenchEuroSATS1Dataset
+from datasets.senbench_benv2_wrapper import SenBenchBenV2Dataset
 
 
 model_registry = {
@@ -24,7 +25,7 @@ model_registry = {
     # "panopticon": PanopticonModel,
     "scalemae": ScaleMAEModel,
     "gfm": GFMModel,
-    "dinov2": DinoV2Model,
+    #"dinov2": DinoV2Model,
     "softcon": SoftConModel,
     "dofa": DofaModel,
     "satmae": SatMAEModel,
@@ -41,6 +42,7 @@ dataset_registry = {
     "senbench_clouds2": SenBenchCloudS2Dataset,
     "senbench_eurosats2": SenBenchEuroSATS2Dataset,
     "senbench_eurosats1": SenBenchEuroSATS1Dataset,
+    "senbench_benv2": SenBenchBenV2Dataset,
 }
 
 
