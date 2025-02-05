@@ -27,15 +27,15 @@ class BigEarthNetv2(BigEarthNet):
     splits_metadata = {
         "train": {
             #"url": "https://zenodo.org/records/10891137/files/metadata.parquet",
-            "filename": "metadata_10%.parquet",
+            "filename": "metadata-10%.parquet",
         },
         "val": {
             #"url": "https://zenodo.org/records/10891137/files/metadata.parquet",
-            "filename": "metadata_10%.parquet",
+            "filename": "metadata-10%.parquet",
         },
         "test": {
             #"url": "https://zenodo.org/records/10891137/files/metadata.parquet",
-            "filename": "metadata_10%.parquet",
+            "filename": "metadata-10%.parquet",
         },
     }
     metadata_locs = {

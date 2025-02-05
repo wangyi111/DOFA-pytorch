@@ -9,7 +9,7 @@ num_channels: 1
 masknan: true
 data_path: /home/ge86wof2/sentinelbench/airquality_s5p
 modality: no2
-mode: annual
+mode: annual # seasonal
 band_wavelengths: [430]
 band_bandwidths: [60]
 image_resolution: 56

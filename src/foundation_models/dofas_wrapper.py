@@ -167,7 +167,7 @@ class DofaSegmentation(LightningTask):
                 type="CrossEntropyLoss", use_sigmoid=False, loss_weight=0.4
             ),
         )
-        self.criterion = nn.CrossEntropyLoss()
+        self.criterion = nn.CrossEntropyLoss(ignore_index=data_config.ignore_index)
 
     def loss(self, outputs, labels):
         return self.criterion(outputs[0], labels) + 0.4 * self.criterion(

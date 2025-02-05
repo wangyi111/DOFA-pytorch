@@ -35,11 +35,11 @@ def main(cfg: DictConfig):
         tracking_uri=f"file:{os.path.join(cfg.output_dir, 'mlruns')}",
     )
 
-    # wandb_logger = WandbLogger(
-    # project="ssl4eo-s-downstream",  # Change this to your WandB project name
-    # name=f"{cfg.model.model_type}_{cfg.dataset.dataset_name}_run",
-    # #log_model="all",  # Logs model checkpoints
-    # )
+    wandb_logger = WandbLogger(
+    project="ssl4eo-s-downstream",  # Change this to your WandB project name
+    name=f"{cfg.model.model_type}_{cfg.dataset.dataset_name}_run",
+    #log_model="all",  # Logs model checkpoints
+    )
 
     # Callbacks
     if cfg.task == "regression":
@@ -66,8 +66,8 @@ def main(cfg: DictConfig):
 
     # Initialize trainer
     trainer = Trainer(
-        logger=mlf_logger,
-        #logger=[mlf_logger,wandb_logger],
+        #logger=mlf_logger,
+        logger=[mlf_logger,wandb_logger],
         callbacks=callbacks,
         strategy=DDPStrategy(find_unused_parameters=False) if cfg.strategy == "ddp" and cfg.num_gpus > 1 else cfg.strategy,
         devices=cfg.num_gpus,
