@@ -1,0 +1,20 @@
+defaults:
+  - base_dataset
+
+dataset_type: senbench_so2sat
+task: classification
+dataset_name: senbench_so2sat
+num_classes: 17
+num_channels: 10
+data_path: /home/ge86wof2/sentinelbench/so2sat_s1s2
+version: 3_culture_10
+band_names: ['S2_B02', 'S2_B03', 'S2_B04', 'S2_B05', 'S2_B06', 'S2_B07', 'S2_B08', 'S2_B8A', 'S2_B11', 'S2_B12']
+band_wavelengths: [490, 560, 665, 705, 740, 783, 842, 860, 1610, 2190]
+band_bandwidths: [65, 35, 30, 15, 15, 20, 115, 20, 90, 180]
+image_resolution: 224
+multilabel: false
+ignore_index: null
+language_embed: null
+input_mode: spectral
+kernel_size: 16
+key: null # only valid for non-spectral variables

@@ -114,20 +114,20 @@ class SenBenchDFC2020(NonGeoDataset):
             img = src.read(self.band_indices).astype('float32')
             img = torch.from_numpy(img)
 
-            # get lon, lat
-            cx,cy = src.xy(src.height // 2, src.width // 2)
-            if src.crs.to_string() != 'EPSG:4326':
-                # convert to lon, lat
-                crs_transformer = Transformer.from_crs(src.crs, 'epsg:4326', always_xy=True)
-                lon, lat = crs_transformer.transform(cx,cy)
-            else:
-                lon, lat = cx, cy
-            # get time
-            #img_fname = os.path.basename(s3_path)
-            #date_str = img_fname.split('____')[1][:8]
-            #date_obj = date(int(date_str[:4]), int(date_str[4:6]), int(date_str[6:8]))
-            #delta = (date_obj - self.reference_date).days
-            meta_info = np.array([lon, lat, np.nan, self.patch_area]).astype(np.float32)
+            # # get lon, lat
+            # cx,cy = src.xy(src.height // 2, src.width // 2)
+            # if src.crs.to_string() != 'EPSG:4326':
+            #     # convert to lon, lat
+            #     crs_transformer = Transformer.from_crs(src.crs, 'epsg:4326', always_xy=True)
+            #     lon, lat = crs_transformer.transform(cx,cy)
+            # else:
+            #     lon, lat = cx, cy
+            # # get time
+            # img_fname = os.path.basename(s3_path)
+            # date_str = img_fname.split('____')[1][:8]
+            # date_obj = date(int(date_str[:4]), int(date_str[4:6]), int(date_str[6:8]))
+            # delta = (date_obj - self.reference_date).days
+            meta_info = np.array([np.nan, np.nan, np.nan, self.patch_area]).astype(np.float32)
             meta_info = torch.from_numpy(meta_info)
 
         return img, meta_info
