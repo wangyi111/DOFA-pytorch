@@ -469,7 +469,7 @@ class Dynamic_MLP_OFA_variable(nn.Module):
         elif self.option == 'language':
             # op2: language embedding
             script_dir = os.path.dirname(os.path.abspath(__file__))
-            llm_embed_path = os.path.join(script_dir, 'var_embed_llama3.2_1B.pt')
+            llm_embed_path = os.path.join(script_dir, 'var_embed_llama3.2_1B.pt') # https://huggingface.co/wangyi111/DOFA-S/blob/main/var_embed_llama3.2_1B.pt
             self.language_embed = torch.load(llm_embed_path) # 2048   
             self.language_embed['s5p_co'] = self.language_embed['Sentinel 5P Carbon Monoxide']
             self.language_embed['s5p_no2'] = self.language_embed['Sentinel 5P Nitrogen Dioxide']

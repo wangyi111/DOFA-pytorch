@@ -1,0 +1,20 @@
+defaults:
+  - base_dataset
+
+dataset_type: senbench_dfc2020
+task: segmentation
+dataset_name: senbench_dfc2020
+num_classes: 10
+num_channels: 13
+data_path: /home/ge86wof2/sentinelbench/dfc2020_s1s2
+modality: s2
+band_names: ['B01', 'B02', 'B03', 'B04', 'B05', 'B06', 'B07', 'B08', 'B8A', 'B09', 'B10', 'B11', 'B12']
+band_wavelengths: [440, 490, 560, 665, 705, 740, 783, 842, 860, 940, 1370, 1610, 2190]
+band_bandwidths: [20, 65, 35, 30, 15, 15, 20, 115, 20, 20, 30, 90, 180]
+image_resolution: 256
+multilabel: false
+ignore_index: 255
+language_embed: null
+input_mode: spectral
+kernel_size: 16
+key: null # only valid for non-spectral variables

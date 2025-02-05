@@ -59,14 +59,14 @@ experiments = [
     #     "lr": 0.01,
     #     "epochs": 50,
     # },
-    # {
-    #     "model": "dofas_seg",
-    #     "dataset": "senbench_lc100s3seg",
-    #     "task": "segmentation",
-    #     "batch_size": 8,
-    #     "lr": 0.001,
-    #     "epochs": 10,
-    # },
+    {
+        "model": "dofas_seg",
+        "dataset": "senbench_lc100s3seg",
+        "task": "segmentation",
+        "batch_size": 8,
+        "lr": 0.001,
+        "epochs": 10,
+    },
     # {
     #     "model": "dofas_reg",
     #     "dataset": "senbench_aqs5pno2",
@@ -83,14 +83,30 @@ experiments = [
     #     "lr": 0.001,
     #     "epochs": 10,
     # },
-    {
-        "model": "dofas_seg",
-        "dataset": "senbench_clouds3",
-        "task": "segmentation",
-        "batch_size": 16,
-        "lr": 0.001,
-        "epochs": 10,
-    },
+    # {
+    #     "model": "dofas_seg",
+    #     "dataset": "senbench_clouds3",
+    #     "task": "segmentation",
+    #     "batch_size": 16,
+    #     "lr": 0.001,
+    #     "epochs": 10,
+    # },
+    # {
+    #     "model": "dofas_seg",
+    #     "dataset": "senbench_dfc2020s1",
+    #     "task": "segmentation",
+    #     "batch_size": 16,
+    #     "lr": 0.001,
+    #     "epochs": 10,
+    # },
+    # {
+    #     "model": "dofas_seg",
+    #     "dataset": "senbench_dfc2020s2",
+    #     "task": "segmentation",
+    #     "batch_size": 16,
+    #     "lr": 0.001,
+    #     "epochs": 10,
+    # },
 ]
 
 # Run each experiment

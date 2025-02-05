@@ -22,6 +22,8 @@ from datasets.senbench_lc100s3cls_wrapper import SenBenchLC100S3ClsDataset
 from datasets.senbench_lc100s3seg_wrapper import SenBenchLC100S3SegDataset
 from datasets.senbench_airqualitys5p_wrapper import SenBenchAirQualityS5PDataset
 from datasets.senbench_clouds3_wrapper import SenBenchCloudS3Dataset
+from datasets.senbench_dfc2020_wrapper import SenBenchDFC2020Dataset
+
 
 
 model_registry = {
@@ -51,6 +53,7 @@ dataset_registry = {
     "senbench_lc100s3seg": SenBenchLC100S3SegDataset,
     "senbench_airqualitys5p": SenBenchAirQualityS5PDataset,
     "senbench_clouds3": SenBenchCloudS3Dataset,
+    "senbench_dfc2020": SenBenchDFC2020Dataset,
 }
 
 

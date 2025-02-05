@@ -22,7 +22,7 @@ band_bandwidths: [
   2.5, 15, 20, 10, 10, 20, 40]
 image_resolution: 282
 multilabel: false
-ignore_index: null
+ignore_index: -100
 language_embed: null
 input_mode: spectral
 kernel_size: 8
