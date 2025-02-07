@@ -4,7 +4,7 @@ from foundation_models import (
     CromaModel,
     ScaleMAEModel,
     GFMModel,
-    #DinoV2Model,
+    # DinoV2Model,
     SoftConModel,
     DofaModel,
     SatMAEModel,
@@ -24,7 +24,7 @@ from datasets.senbench_airqualitys5p_wrapper import SenBenchAirQualityS5PDataset
 from datasets.senbench_clouds3_wrapper import SenBenchCloudS3Dataset
 from datasets.senbench_dfc2020_wrapper import SenBenchDFC2020Dataset
 from datasets.senbench_so2sat_wrapper import SenBenchSo2SatDataset
-
+from datasets.senbench_biomass_wrapper import SenBenchBiomassDataset
 
 
 model_registry = {
@@ -32,7 +32,7 @@ model_registry = {
     # "panopticon": PanopticonModel,
     "scalemae": ScaleMAEModel,
     "gfm": GFMModel,
-    #"dinov2": DinoV2Model,
+    # "dinov2": DinoV2Model,
     "softcon": SoftConModel,
     "dofa": DofaModel,
     "satmae": SatMAEModel,
@@ -56,6 +56,7 @@ dataset_registry = {
     "senbench_clouds3": SenBenchCloudS3Dataset,
     "senbench_dfc2020": SenBenchDFC2020Dataset,
     "senbench_so2sat": SenBenchSo2SatDataset,
+    "senbench_biomass": SenBenchBiomassDataset,
 }
 
 
