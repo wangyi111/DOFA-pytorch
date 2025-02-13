@@ -1,7 +1,7 @@
 #!/bin/bash
 
 #export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5
-#export CUDA_VISIBLE_DEVICES=5
+#export CUDA_VISIBLE_DEVICES=0
 #export GEO_BENCH_DIR=/home/xshadow/Datasets/geobench/
 export MODEL_WEIGHTS_DIR=/home/ge86wof2/weights/
 
@@ -20,7 +20,7 @@ model=$model \
 dataset=$dataset \
 task=$task \
 num_gpus=$num_gpus \
-num_workers=0 \
+num_workers=8 \
 batch_size=$batch_size \
 epochs=$epochs \
 lr=$lr \

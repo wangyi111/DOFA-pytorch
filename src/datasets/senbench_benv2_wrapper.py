@@ -3,6 +3,7 @@
 import glob
 import os
 from typing import Callable, Optional
+from collections.abc import Sequence
 
 import kornia.augmentation as K
 import pandas as pd
@@ -27,15 +28,15 @@ class BigEarthNetv2(BigEarthNet):
     splits_metadata = {
         "train": {
             #"url": "https://zenodo.org/records/10891137/files/metadata.parquet",
-            "filename": "metadata-10%.parquet",
+            "filename": "metadata-5%.parquet", #"metadata-10%.parquet",
         },
         "val": {
             #"url": "https://zenodo.org/records/10891137/files/metadata.parquet",
-            "filename": "metadata-10%.parquet",
+            "filename": "metadata-5%.parquet", #"metadata-10%.parquet",
         },
         "test": {
             #"url": "https://zenodo.org/records/10891137/files/metadata.parquet",
-            "filename": "metadata-10%.parquet",
+            "filename": "metadata-5%.parquet", #"metadata-10%.parquet",
         },
     }
     metadata_locs = {
@@ -59,12 +60,15 @@ class BigEarthNetv2(BigEarthNet):
         },
     }
     image_size = (120, 120)
+    all_band_names_s1 = ('VV','VH')
+    all_band_names_s2 = ('B01', 'B02', 'B03', 'B04', 'B05', 'B06', 'B07', 'B08', 'B8A', 'B09', 'B11', 'B12')
 
     def __init__(
         self,
         root: str = "data",
         split: str = "train",
         bands: str = "all",
+        band_names: Sequence[str] = ('B01', 'B02', 'B03', 'B04', 'B05', 'B06', 'B07', 'B08', 'B8A', 'B09', 'B11', 'B12'),
         num_classes: int = 19,
         transforms: Optional[Callable[[dict[str, Tensor]], dict[str, Tensor]]] = None,
         download: bool = False,
@@ -91,6 +95,15 @@ class BigEarthNetv2(BigEarthNet):
             download=download,
             checksum=checksum,
         )
+
+        self.band_names = band_names
+        if self.bands == 's1':
+            self.all_band_names = self.all_band_names_s1
+        else:
+            self.all_band_names = self.all_band_names_s2
+        self.band_indices = [(self.all_band_names.index(b)+1) for b in band_names if b in self.all_band_names]
+        #pdb.set_trace()
+
 
         self.class2idx_43 = {c: i for i, c in enumerate(self.class_sets[43])}
         self.class2idx_19 = {c: i for i, c in enumerate(self.class_sets[19])}
@@ -240,11 +253,8 @@ class BigEarthNetv2(BigEarthNet):
             # Resample to (120, 120)
             with rasterio.open(path) as src:
                 array = src.read(
-                    #indexes=1,
-                    #out_shape=self.image_size,
-                    out_dtype='float32',
-                    #resampling=Resampling.bilinear,
-                )
+                    self.band_indices,
+                ).astype('float32')
 
                 cx,cy = src.xy(src.height // 2, src.width // 2)
                 if src.crs.to_string() != 'EPSG:4326':
@@ -291,102 +301,32 @@ class BigEarthNetv2(BigEarthNet):
 
 
 class ClsDataAugmentation(torch.nn.Module):
-    mins_raw = torch.tensor(
-        [-70.0, -72.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0]
-    )
-    maxs_raw = torch.tensor(
-        [
-            31.0,
-            35.0,
-            18556.0,
-            20528.0,
-            18976.0,
-            17874.0,
-            16611.0,
-            16512.0,
-            16394.0,
-            16672.0,
-            16141.0,
-            16097.0,
-            15336.0,
-            15203.0,
-        ]
-    )
 
-    # min/max band statistics computed by percentile clipping the
-    # above to samples to [2, 98]
-    mins = torch.tensor(
-        [-48.0, -42.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
-    )
-    maxs = torch.tensor(
-        [
-            6.0,
-            16.0,
-            9859.0,
-            12872.0,
-            13163.0,
-            14445.0,
-            12477.0,
-            12563.0,
-            12289.0,
-            15596.0,
-            12183.0,
-            9458.0,
-            5897.0,
-            5544.0,
-        ]
-    )
-
-    means = torch.tensor([
-        -12.54,-20.19, # VV,VH
-        1353.7,1117.2,1041.8,946.5,1199.1,2003.0,2374.0,2301.2,2599.7,732.1,1820.6,1118.2
-    ])
-
-    stds = torch.tensor([
-        5.25, 5.91, # VV,VH
-        897.2714,  736.0176,  684.7762,  620.0290,  791.8626, 1341.2802, 1595.3999, 1545.5292, 1750.1207,  475.1160,   1216.4865,  736.6981
-    ])
-
-
-
-    def __init__(self, split, size, bands="all"):
+    def __init__(self, split, size, bands, band_stats):
         super().__init__()
 
-        # if bands == "all":
-        #     mins = self.mins
-        #     maxs = self.maxs
-        if bands == "s1":
-            mins = self.mins[:2]
-            maxs = self.maxs[:2]
-            means = self.means[:2]
-            stds = self.stds[:2]
-        elif bands == "s2":
-            mins = self.mins[2:]
-            maxs = self.maxs[2:]
-            means = self.means[2:]
-            stds = self.stds[2:]            
-        elif bands == "rgb":
-            mins = self.mins[2:5].flip(dims=(0,))  # to get RGB order
-            maxs = self.maxs[2:5].flip(dims=(0,))
-            means = self.means[2:5].flip(dims=(0,))
-            stds = self.stds[2:5].flip(dims=(0,))
-
         self.bands = bands
-        #self.mean = mins
-        #self.std = maxs - mins
-        self.mean = means
-        self.std = stds
+
+        if band_stats is not None:
+            mean = band_stats['mean']
+            std = band_stats['std']
+        else:
+            mean = [0.0]
+            std = [1.0]
+
+        mean = torch.Tensor(mean)
+        std = torch.Tensor(std)
 
         if split == "train":
             self.transform = torch.nn.Sequential(
-                K.Normalize(mean=self.mean, std=self.std),
+                K.Normalize(mean=mean, std=std),
                 K.Resize(size=size, align_corners=True),
                 K.RandomHorizontalFlip(p=0.5),
                 K.RandomVerticalFlip(p=0.5),
             )
         else:
             self.transform = torch.nn.Sequential(
-                K.Normalize(mean=self.mean, std=self.std),
+                K.Normalize(mean=mean, std=std),
                 K.Resize(size=size, align_corners=True),
             )
 
@@ -405,8 +345,10 @@ class SenBenchBenV2Dataset:
         self.dataset_config = config
         self.img_size = (config.image_resolution, config.image_resolution)
         self.root_dir = config.data_path
-        self.bands = config.bands
+        self.bands = config.modality
+        self.band_names = config.band_names
         self.num_classes = config.num_classes
+        self.band_stats = config.band_stats
 
         if self.bands == "rgb":
             # start with rgb and extract later
@@ -416,10 +358,10 @@ class SenBenchBenV2Dataset:
 
     def create_dataset(self):
         train_transform = ClsDataAugmentation(
-            split="train", size=self.img_size, bands=self.bands
+            split="train", size=self.img_size, bands=self.bands, band_stats=self.band_stats
         )
         eval_transform = ClsDataAugmentation(
-            split="test", size=self.img_size, bands=self.bands
+            split="test", size=self.img_size, bands=self.bands, band_stats=self.band_stats
         )
 
         dataset_train = BigEarthNetv2(
@@ -427,6 +369,7 @@ class SenBenchBenV2Dataset:
             num_classes=self.num_classes,
             split="train",
             bands=self.input_bands,
+            band_names=self.band_names,
             transforms=train_transform,
         )
 
@@ -443,6 +386,7 @@ class SenBenchBenV2Dataset:
             num_classes=self.num_classes,
             split="val",
             bands=self.input_bands,
+            band_names=self.band_names,
             transforms=eval_transform,
         )
         dataset_test = BigEarthNetv2(
@@ -450,6 +394,7 @@ class SenBenchBenV2Dataset:
             num_classes=self.num_classes,
             split="test",
             bands=self.input_bands,
+            band_names=self.band_names,
             transforms=eval_transform,
         )
 

@@ -300,7 +300,8 @@ class Dynamic_MLP_OFA(nn.Module):
     def forward(self, img_feat, wvs):
         inplanes = wvs.size(0)
         # wv_feats: 9,128 -> 9, 3x3x3
-        waves = get_1d_sincos_pos_embed_from_grid_torch(self.wv_planes, wvs * 1000)
+        #waves = get_1d_sincos_pos_embed_from_grid_torch(self.wv_planes, wvs * 1000)
+        waves = get_1d_sincos_pos_embed_from_grid_torch(self.wv_planes, wvs)
         waves = self.fclayer(waves)
         weight, bias = self._get_weights(waves)  # 3x3x3
         # bias = None

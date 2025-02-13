@@ -153,14 +153,16 @@ class ClsDataAugmentation(torch.nn.Module):
         }
     }
 
-    def __init__(self, split, size, bands):
+    def __init__(self, split, size, band_stats):
         super().__init__()
 
-        mean = []
-        std = []
-        for band in bands:
-            mean.append(self.BAND_STATS['mean'][band])
-            std.append(self.BAND_STATS['std'][band])
+        if band_stats is not None:
+            mean = band_stats['mean']
+            std = band_stats['std']
+        else:
+            mean = [0.0]
+            std = [1.0]
+
         mean = torch.Tensor(mean)
         std = torch.Tensor(std)
 
@@ -190,10 +192,11 @@ class SenBenchEuroSATS2Dataset:
         self.img_size = (config.image_resolution, config.image_resolution)
         self.root_dir = config.data_path
         self.bands = config.band_names
+        self.band_stats = config.band_stats
 
     def create_dataset(self):
-        train_transform = ClsDataAugmentation(split="train", size=self.img_size, bands=self.bands)
-        eval_transform = ClsDataAugmentation(split="test", size=self.img_size, bands=self.bands)
+        train_transform = ClsDataAugmentation(split="train", size=self.img_size, band_stats=self.band_stats)
+        eval_transform = ClsDataAugmentation(split="test", size=self.img_size, band_stats=self.band_stats)
 
         dataset_train = SenBenchEuroSATS2(
             root=self.root_dir, split="train", bands=self.bands, transforms=train_transform

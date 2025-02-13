@@ -20,7 +20,8 @@ band_bandwidths: [
   15, 10, 10, 10, 10, 10, 10, 
   10, 7.5, 7.5, 10, 7.5, 7.5, 3.75, 
   2.5, 15, 20, 10, 10, 20, 40]
-image_resolution: 282
+band_stats: null
+image_resolution: 96 #282
 multilabel: false
 ignore_index: -100
 language_embed: null

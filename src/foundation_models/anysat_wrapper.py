@@ -32,9 +32,12 @@ class AnySatClassification(LightningTask):
         return self.criterion(outputs[0], labels)
 
     def forward(self, samples):
-        data = {"spot": samples}
+        #data = {"spot": samples}
+        if len(samples.shape)<5:
+            samples = samples.unsqueeze(1)
+        data = {"s2": samples, "s2_dates": torch.zeros((samples.shape[0],samples.shape[1]),device=samples.device)}
         features = self.encoder(
-            data, patch_size=16, output="tile", output_modality="spot"
+            data, patch_size=160, output="tile", output_modality="s2"
         )
         global_pooled = features
         out_logits = self.linear_classifier(global_pooled)

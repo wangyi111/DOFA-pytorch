@@ -112,7 +112,7 @@ class SenBenchCloudS3(NonGeoDataset):
         s3_path = os.path.join(self.img_dir, fname)
         
         with rasterio.open(s3_path) as src:
-            img = src.read()
+            img = src.read(self.band_indices)
             img[np.isnan(img)] = 0
             chs = []
             for b in range(21):
@@ -157,11 +157,18 @@ class SenBenchCloudS3(NonGeoDataset):
 
 
 class SegDataAugmentation(torch.nn.Module):
-    def __init__(self, split, size):
+    def __init__(self, split, size, band_stats):
         super().__init__()
 
-        mean = torch.Tensor([0.0])
-        std = torch.Tensor([1.0])
+        if band_stats is not None:
+            mean = band_stats['mean']
+            std = band_stats['std']
+        else:
+            mean = [0.0]
+            std = [1.0]
+
+        mean = torch.Tensor(mean)
+        std = torch.Tensor(std)
 
         self.norm = K.augmentation.Normalize(mean=mean, std=std)
 
@@ -195,10 +202,11 @@ class SenBenchCloudS3Dataset:
         self.root_dir = config.data_path
         self.bands = config.band_names
         self.mode = config.mode
+        self.band_stats = config.band_stats
 
     def create_dataset(self):
-        train_transform = SegDataAugmentation(split="train", size=self.img_size)
-        eval_transform = SegDataAugmentation(split="test", size=self.img_size)
+        train_transform = SegDataAugmentation(split="train", size=self.img_size, band_stats=self.band_stats)
+        eval_transform = SegDataAugmentation(split="test", size=self.img_size, band_stats=self.band_stats)
 
         dataset_train = SenBenchCloudS3(
             root=self.root_dir, split="train", bands=self.bands, mode=self.mode, transforms=train_transform

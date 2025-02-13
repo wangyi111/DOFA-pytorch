@@ -10,8 +10,10 @@ masknan: true
 data_path: /home/ge86wof2/sentinelbench/airquality_s5p
 modality: no2
 mode: annual # seasonal
+band_names: ['tropospheric_NO2_column_number_density'] # not used
 band_wavelengths: [430]
 band_bandwidths: [60]
+band_stats: null
 image_resolution: 56
 multilabel: false
 #ignore_index: null

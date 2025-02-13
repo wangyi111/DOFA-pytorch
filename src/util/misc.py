@@ -90,42 +90,22 @@ def seg_metric(dataset_config, output, target):
     )
     return miou, acc
 
-def masked_root_mean_squared_error(pred, target, quality_mask):
-    """
-    Computes the mean squared error with a quality mask.
-
-    Args:
-        pred (torch.Tensor): The predictions, shape (batch_size, channels, height, width).
-        target (torch.Tensor): The ground truth values, shape (batch_size, channels, height, width).
-        quality_mask (torch.Tensor): The quality mask, shape (batch_size, 1, height, width).
-                                    Pixels with value 0 in the mask are excluded from the computation.
-
-    Returns:
-        torch.Tensor: The computed mean squared error.
-    """
-    # Ensure quality_mask is broadcastable to the shape of pred/target
-    if quality_mask.shape[1] != pred.shape[1]:
-        quality_mask = quality_mask.expand_as(pred)
+def mean_squared_error_with_nan(pred, target, squared=True):
 
     # Element-wise difference squared
     diff = (pred - target) ** 2
-
-    # Apply the mask
-    masked_diff = diff * quality_mask
-
     # Compute the mean, considering only the valid pixels
-    valid_pixel_count = quality_mask.sum()  # Count of valid pixels
-    mse = masked_diff.sum() / (valid_pixel_count + 1e-8)  # Avoid division by zero
-    rmse = torch.sqrt(mse)
-
-    return rmse
+    mse = diff.nanmean()
+    if not squared:
+        rmse = torch.sqrt(mse)
+        return rmse
+    else:
+        return mse
 
 def reg_metric(dataset_config, output, target):
 
     if dataset_config.masknan:
-        qmask = 1-torch.isnan(target).float()
-        target[target.isnan()] = 0
-        rmse = masked_root_mean_squared_error(output, target, qmask)
+        rmse = mean_squared_error_with_nan(output, target, squared=False)
     else:
         rmse = mean_squared_error(output, target, squared=False)
 

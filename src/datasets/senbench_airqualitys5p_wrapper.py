@@ -74,9 +74,9 @@ class SenBenchAirQualityS5P(NonGeoDataset):
         #meta_info = np.array([coord[0], coord[1], np.nan, self.patch_area]).astype(np.float32)
         label = self._load_target(index)
         if self.mode == 'annual':
-            sample = {'image': images[0], 'groudtruth': label, 'meta': meta_infos[0]}
+            sample = {'image': images[0], 'groundtruth': label, 'meta': meta_infos[0]}
         elif self.mode == 'seasonal':
-            sample = {'image': images, 'groudtruth': label, 'meta': meta_infos}
+            sample = {'image': images, 'groundtruth': label, 'meta': meta_infos}
 
         #pdb.set_trace()
 
@@ -152,17 +152,25 @@ class SenBenchAirQualityS5P(NonGeoDataset):
 
 
 class RegDataAugmentation(torch.nn.Module):
-    def __init__(self, split, size):
+    def __init__(self, split, size, band_stats):
         super().__init__()
 
-        mean = torch.Tensor([0.0])
-        std = torch.Tensor([1.0])
+        if band_stats is not None:
+            mean = band_stats['mean']
+            std = band_stats['std']
+        else:
+            mean = [0.0]
+            std = [1.0]
+
+        mean = torch.Tensor(mean)
+        std = torch.Tensor(std)
 
         self.norm = K.augmentation.Normalize(mean=mean, std=std)
 
         if split == "train":
             self.transform = K.augmentation.AugmentationSequential(
                 K.augmentation.Resize(size=size, align_corners=True),
+                #K.augmentation.RandomResizedCrop((56, 56), scale=(0.8, 1.0)),
                 K.augmentation.RandomRotation(degrees=90, p=0.5, align_corners=True),
                 K.augmentation.RandomHorizontalFlip(p=0.5),
                 K.augmentation.RandomVerticalFlip(p=0.5),
@@ -177,7 +185,7 @@ class RegDataAugmentation(torch.nn.Module):
     @torch.no_grad()
     def forward(self, batch: dict[str,]):
         """Torchgeo returns a dictionary with 'image' and 'label' keys, but engine expects a tuple"""
-        x,mask = batch["image"], batch["groudtruth"]
+        x,mask = batch["image"], batch["groundtruth"]
         x = self.norm(x)
         x_out, mask_out = self.transform(x, mask.unsqueeze(0))
         return x_out.squeeze(0), mask_out.squeeze(0), batch["meta"]
@@ -190,10 +198,11 @@ class SenBenchAirQualityS5PDataset:
         self.root_dir = config.data_path
         self.modality = config.modality
         self.mode = config.mode
+        self.band_stats = config.band_stats
 
     def create_dataset(self):
-        train_transform = RegDataAugmentation(split="train", size=self.img_size)
-        eval_transform = RegDataAugmentation(split="test", size=self.img_size)
+        train_transform = RegDataAugmentation(split="train", size=self.img_size, band_stats=self.band_stats)
+        eval_transform = RegDataAugmentation(split="test", size=self.img_size, band_stats=self.band_stats)
 
         dataset_train = SenBenchAirQualityS5P(
             root=self.root_dir, split="train", modality=self.modality, mode=self.mode, transforms=train_transform

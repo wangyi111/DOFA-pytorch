@@ -14,7 +14,7 @@ Path: TypeAlias = str | os.PathLike[str]
 
 class SenBenchSo2Sat(So2Sat):
 
-    versions = ('3_culture_10')
+    versions = ('4_senbench')
     filenames_by_version: ClassVar[dict[str, dict[str, str]]] = {
         # '2': {
         #     'train': 'training.h5',
@@ -23,11 +23,16 @@ class SenBenchSo2Sat(So2Sat):
         # },
         # '3_random': {'train': 'random/training.h5', 'test': 'random/testing.h5'},
         # '3_block': {'train': 'block/training.h5', 'test': 'block/testing.h5'},
-        '3_culture_10': {
-            'train': 'culture_10/train-new.h5',
-            'val': 'culture_10/val-new.h5',
-            'test': 'culture_10/test-new.h5',
-        },
+        # '3_culture_10': {
+        #     'train': 'culture_10/train-new.h5',
+        #     'val': 'culture_10/val-new.h5',
+        #     'test': 'culture_10/test-new.h5',
+        # },
+        '4_senbench': {
+            'train': 'train-new.h5',
+            'val': 'val-new.h5',
+            'test': 'test-new.h5'
+        }
     }
 
     classes = (
@@ -86,7 +91,7 @@ class SenBenchSo2Sat(So2Sat):
     def __init__(
         self,
         root: Path = 'data',
-        version: str = '3_culture_10', # only supported version now
+        version: str = '4_senbench', # only supported version now
         split: str = 'train',
         bands: Sequence[str] = BAND_SETS['s2'], # only supported bands now
         transforms: Callable[[dict[str, Tensor]], dict[str, Tensor]] | None = None,
@@ -174,52 +179,17 @@ class SenBenchSo2Sat(So2Sat):
 
 
 class ClsDataAugmentation(torch.nn.Module):
-    BAND_STATS = {
-        'mean': {
-            'B01': 1353.72696296,
-            'B02': 1117.20222222,
-            'B03': 1041.8842963,
-            'B04': 946.554,
-            'B05': 1199.18896296,
-            'B06': 2003.00696296,
-            'B07': 2374.00874074,
-            'B08': 2301.22014815,
-            'B8A': 2599.78311111,
-            'B09': 732.18207407,
-            'B10': 12.09952894,
-            'B11': 1820.69659259,
-            'B12': 1118.20259259,
-            #'VV': -12.54847273,
-            #'VH': -20.19237134
-        },
-        'std': {
-            'B01': 897.27143653,
-            'B02': 736.01759721,
-            'B03': 684.77615743,
-            'B04': 620.02902871,
-            'B05': 791.86263829,
-            'B06': 1341.28018273,
-            'B07': 1595.39989386,
-            'B08': 1545.52915718,
-            'B8A': 1750.12066835,
-            'B09': 475.11595216,
-            'B10': 98.26600935,
-            'B11': 1216.48651476,
-            'B12': 736.6981037,
-            #'VV': 5.25697717,
-            #'VH': 5.91150917
-        }
-    }
 
-    def __init__(self, split, size, bands):
+    def __init__(self, split, size, band_stats):
         super().__init__()
 
-        mean = []
-        std = []
-        for band in bands:
-            band = band[3:]
-            mean.append(self.BAND_STATS['mean'][band])
-            std.append(self.BAND_STATS['std'][band])
+        if band_stats is not None:
+            mean = band_stats['mean']
+            std = band_stats['std']
+        else:
+            mean = [0.0]
+            std = [1.0]
+
         mean = torch.Tensor(mean)
         std = torch.Tensor(std)
 
@@ -227,6 +197,7 @@ class ClsDataAugmentation(torch.nn.Module):
             self.transform = torch.nn.Sequential(
                 K.Normalize(mean=mean, std=std),
                 K.Resize(size=size, align_corners=True),
+                #K.RandomResizedCrop(size=size, scale=(0.8,1.0)),
                 K.RandomHorizontalFlip(p=0.5),
                 K.RandomVerticalFlip(p=0.5),
             )
@@ -250,10 +221,11 @@ class SenBenchSo2SatDataset:
         self.root_dir = config.data_path
         self.bands = config.band_names
         self.version = config.version
+        self.band_stats = config.band_stats
 
     def create_dataset(self):
-        train_transform = ClsDataAugmentation(split="train", size=self.img_size, bands=self.bands)
-        eval_transform = ClsDataAugmentation(split="test", size=self.img_size, bands=self.bands)
+        train_transform = ClsDataAugmentation(split="train", size=self.img_size, band_stats=self.band_stats)
+        eval_transform = ClsDataAugmentation(split="test", size=self.img_size, band_stats=self.band_stats)
 
         dataset_train = SenBenchSo2Sat(
             root=self.root_dir, version=self.version, split="train", bands=self.bands, transforms=train_transform

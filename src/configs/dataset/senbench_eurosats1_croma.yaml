@@ -1,22 +1,21 @@
 defaults:
   - base_dataset
 
-dataset_type: senbench_dfc2020
-task: segmentation
-dataset_name: senbench_dfc2020
-num_classes: 8 # origin 10 but 2 not present
+dataset_type: senbench_eurosats1
+task: classification
+dataset_name: senbench_eurosats1
+num_classes: 10
 num_channels: 2
-data_path: /home/ge86wof2/sentinelbench/dfc2020_s1s2
-modality: s1
+data_path: /home/ge86wof2/sentinelbench/eurosat_s1sar
 band_names: ['VV', 'VH']
 band_wavelengths: [50000000, 50000000]
 band_bandwidths: [1e9, 1e9]
-band_stats: # null
+band_stats:
   mean: [-12.548, -20.192]
   std: [5.257, 5.912]
-image_resolution: 256
+image_resolution: 120
 multilabel: false
-ignore_index: 255
+ignore_index: null
 language_embed: null
 input_mode: spectral
 kernel_size: 16

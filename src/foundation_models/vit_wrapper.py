@@ -1,67 +1,35 @@
 import torch
 import torch.nn as nn
-from .DOFAS.models_dwv import vit_base_patch16 as vit_base_patch16_cls
-from .DOFAS.models_dwv import vit_large_patch16 as vit_large_patch16_cls
-from .DOFAS.models_dwv import vit_small_patch16 as vit_small_patch16_cls
-from .DOFAS.models_dwv_seg import vit_base_patch16 as vit_base_patch16_seg
-from .DOFAS.models_dwv_seg import vit_large_patch16 as vit_large_patch16_seg
-from .DOFAS.models_dwv_seg import vit_small_patch16 as vit_small_patch16_seg
 from mmseg.models.necks import Feature2Pyramid
 from mmseg.models.decode_heads import UPerHead, FCNHead
 from util.misc import resize
 from .lightning_task import LightningTask
 from timm.models.layers import trunc_normal_
 from util.misc import seg_metric, cls_metric, reg_metric
-from huggingface_hub import hf_hub_download
 import os
-
+#from timm.models.vision_transformer import VisionTransformer
+from .ViT.vit import vit_base as vit_base_cls
+from .ViT.vit import vit_small as vit_small_cls
+from .ViT.vit import vit_large as vit_large_cls
+from .ViT.vit_seg import vit_base as vit_base_seg
+from .ViT.vit_seg import vit_small as vit_small_seg
+from .ViT.vit_seg import vit_large as vit_large_seg
 import pdb
 
 
-class DofaSClassification(LightningTask):
+class ViTClassification(LightningTask):
     def __init__(self, args, model_config, data_config):
         super().__init__(args, model_config, data_config)
 
-        if model_config.dofa_size == "dofa_base":
-            self.encoder = vit_base_patch16_cls(num_classes=data_config.num_classes)
-        elif model_config.dofa_size == "dofa_large":
-            self.encoder = vit_large_patch16_cls(num_classes=data_config.num_classes)
-        elif model_config.dofa_size == "dofa_small":
-            self.encoder = vit_small_patch16_cls(num_classes=data_config.num_classes)
+        if model_config.vit_size == "base":
+            self.encoder = vit_base_cls(img_size=data_config.image_resolution,patch_size=data_config.kernel_size,in_chans=data_config.num_channels,num_classes=data_config.num_classes)
+        elif model_config.vit_size == "large":
+            self.encoder = vit_large_cls(img_size=data_config.image_resolution,patch_size=data_config.kernel_size,in_chans=data_config.num_channels,num_classes=data_config.num_classes)
+        elif model_config.vit_size == "small":
+            self.encoder = vit_small_cls(img_size=data_config.image_resolution,patch_size=data_config.kernel_size,in_chans=data_config.num_channels,num_classes=data_config.num_classes)
 
-        # look for pretrained weights
-        dir = os.getenv("MODEL_WEIGHTS_DIR")
-        filename = model_config.pretrained_path
-        path = os.path.join(dir, filename)
-        if not os.path.exists(path):
-            # download the weights from HF
-            hf_hub_download(
-                repo_id="wangyi111/dofa-s",
-                filename=filename,
-                cache_dir=dir,
-                local_dir=dir,
-            )
-
-        # Load pretrained weights
-        check_point = torch.load(path)
-        if 'model' in check_point:
-            state_dict = check_point['model']
-        else:
-            state_dict = check_point
-        msg = self.encoder.load_state_dict(state_dict, strict=False)
-        print(msg)
-        assert msg.missing_keys==['fc_norm.weight', 'fc_norm.bias'] or msg.missing_keys==['fc_norm.weight', 'fc_norm.bias', 'head.weight', 'head.bias']
-        
-        # load variable language embedding
-        if data_config.language_embed is not None:
-            language_path = os.path.join(dir, data_config.language_embed)
-            self.language_embed = torch.load(language_path)
-            self.language_embed = self.language_embed[data_config.key]
-        else:
-            self.language_embed = None
-        
-
-        if model_config.freeze_backbone:
+        self.freeze_backbone = model_config.freeze_backbone
+        if self.freeze_backbone:
             self.freeze(self.encoder)
 
         trunc_normal_(self.encoder.head.weight, std=0.01)
@@ -80,12 +48,15 @@ class DofaSClassification(LightningTask):
     def loss(self, outputs, labels):
         return self.criterion(outputs[0], labels)
 
-    def forward(self, samples, metas):
-        out_logits, feats = self.encoder(samples, metas, self.data_config.key, self.data_config.band_wavelengths, self.data_config.band_bandwidths, self.language_embed, self.data_config.input_mode, self.data_config.kernel_size)
+    def forward(self, samples):
+        out_logits, feats = self.encoder(samples)
         return (out_logits, feats) #if self.model_config.out_features else out_logits
 
     def params_to_optimize(self):
-        return self.encoder.head.parameters()
+        if self.freeze_backbone:
+            return self.encoder.head.parameters()
+        else:
+            return self.encoder.parameters()
 
     def log_metrics(self, outputs, targets, prefix="train"):
         # Calculate accuracy and other classification-specific metrics
@@ -101,41 +72,20 @@ class DofaSClassification(LightningTask):
         self.log(f"{prefix}_acc5", acc5, on_step=True, on_epoch=True, prog_bar=True)
 
 
-class DofaSSegmentation(LightningTask):
+class ViTSegmentation(LightningTask):
     def __init__(self, args, model_config, data_config):
         super().__init__(args, model_config, data_config)
 
-        if model_config.dofa_size == "dofa_base":
-            self.encoder = vit_base_patch16_seg()
-        elif model_config.dofa_size == "dofa_large":
-            self.encoder = vit_large_patch16_seg()
-        elif model_config.dofa_size == "dofa_small":
-            self.encoder = vit_small_patch16_seg()
+        if model_config.vit_size == "base":
+            self.encoder = vit_base_seg(img_size=data_config.image_resolution,patch_size=data_config.kernel_size,in_chans=data_config.num_channels)
+        elif model_config.vit_size == "large":
+            self.encoder = vit_large_seg(img_size=data_config.image_resolution,patch_size=data_config.kernel_size,in_chans=data_config.num_channels)
+        elif model_config.vit_size == "small":
+            self.encoder = vit_small_seg(img_size=data_config.image_resolution,patch_size=data_config.kernel_size,in_chans=data_config.num_channels)
 
 
-        dir = os.getenv("MODEL_WEIGHTS_DIR")
-        filename = model_config.pretrained_path
-        path = os.path.join(dir, filename)
-
-        # Load pretrained weights
-        check_point = torch.load(path)
-        if 'model' in check_point:
-            state_dict = check_point['model']
-        else:
-            state_dict = check_point
-        msg = self.encoder.load_state_dict(state_dict, strict=False)
-        print(msg)
-        assert msg.missing_keys==[]
-        
-        # load variable language embedding
-        if data_config.language_embed is not None:
-            language_path = os.path.join(dir, data_config.language_embed)
-            self.language_embed = torch.load(language_path)
-            self.language_embed = self.language_embed[data_config.key]
-        else:
-            self.language_embed = None
-
-        if model_config.freeze_backbone:
+        self.freeze_backbone = model_config.freeze_backbone
+        if self.freeze_backbone:
             self.freeze(self.encoder)
 
         edim = model_config.embed_dim
@@ -174,8 +124,8 @@ class DofaSSegmentation(LightningTask):
             outputs[1], labels
         )
 
-    def forward(self, samples, metas):
-        feats = self.encoder(samples, metas, self.data_config.key, self.data_config.band_wavelengths, self.data_config.band_bandwidths, self.language_embed, self.data_config.input_mode, self.data_config.kernel_size)
+    def forward(self, samples):
+        feats = self.encoder(samples)
         feats = self.neck(feats)
         out = self.decoder(feats)
         out = resize(out, size=samples.shape[2:], mode="bilinear", align_corners=False)
@@ -186,11 +136,19 @@ class DofaSSegmentation(LightningTask):
         return out, out_a
 
     def params_to_optimize(self):
-        return (
-            list(self.neck.parameters())
-            + list(self.decoder.parameters())
-            + list(self.aux_head.parameters())
-        )
+        if self.freeze_backbone:
+            return (
+                list(self.neck.parameters())
+                + list(self.decoder.parameters())
+                + list(self.aux_head.parameters())
+            )
+        else:
+            return (
+                list(self.encoder.parameters())
+                + list(self.neck.parameters())
+                + list(self.decoder.parameters())
+                + list(self.aux_head.parameters())
+            )            
 
     def log_metrics(self, outputs, targets, prefix="train"):
         # Calculate mIoU and other segmentation-specific metrics
@@ -201,41 +159,20 @@ class DofaSSegmentation(LightningTask):
         self.log(f"{prefix}_acc", acc, on_step=True, on_epoch=True, prog_bar=True)
 
 
-class DofaSRegression(LightningTask):
+class ViTRegression(LightningTask):
     def __init__(self, args, model_config, data_config):
         super().__init__(args, model_config, data_config)
 
-        if model_config.dofa_size == "dofa_base":
-            self.encoder = vit_base_patch16_seg()
-        elif model_config.dofa_size == "dofa_large":
-            self.encoder = vit_large_patch16_seg()
-        elif model_config.dofa_size == "dofa_small":
-            self.encoder = vit_small_patch16_seg()
+        if model_config.vit_size == "base":
+            self.encoder = vit_base_seg(img_size=data_config.image_resolution,patch_size=data_config.kernel_size,in_chans=data_config.num_channels)
+        elif model_config.vit_size == "large":
+            self.encoder = vit_large_seg(img_size=data_config.image_resolution,patch_size=data_config.kernel_size,in_chans=data_config.num_channels)
+        elif model_config.vit_size == "small":
+            self.encoder = vit_small_seg(img_size=data_config.image_resolution,patch_size=data_config.kernel_size,in_chans=data_config.num_channels)
 
 
-        dir = os.getenv("MODEL_WEIGHTS_DIR")
-        filename = model_config.pretrained_path
-        path = os.path.join(dir, filename)
-
-        # Load pretrained weights
-        check_point = torch.load(path)
-        if 'model' in check_point:
-            state_dict = check_point['model']
-        else:
-            state_dict = check_point
-        msg = self.encoder.load_state_dict(state_dict, strict=False)
-        print(msg)
-        assert msg.missing_keys==[]
-        
-        # load variable language embedding
-        if data_config.language_embed is not None:
-            language_path = os.path.join(dir, data_config.language_embed)
-            self.language_embed = torch.load(language_path)
-            self.language_embed = self.language_embed[data_config.key]
-        else:
-            self.language_embed = None
-
-        if model_config.freeze_backbone:
+        self.freeze_backbone = model_config.freeze_backbone
+        if self.freeze_backbone:
             self.freeze(self.encoder)
 
         edim = model_config.embed_dim
@@ -277,21 +214,15 @@ class DofaSRegression(LightningTask):
         #pdb.set_trace()
 
         if self.data_config.masknan:
-            # qmask not nan
-            #qmask = 1-torch.isnan(labels).float()
-            #labels_new = labels.clone()
-            #labels_new[labels.isnan()] = 0
-
             loss_pix = self.criterion(outputs[0], labels) + 0.4 * self.criterion(outputs[1], labels)
-            #loss_total = (loss_pix * qmask).sum() / qmask.sum()
             loss_total = loss_pix.nanmean()
         else:
             loss_total = self.criterion(outputs[0], labels) + 0.4 * self.criterion(outputs[1], labels)
 
         return loss_total
 
-    def forward(self, samples, metas):
-        feats = self.encoder(samples, metas, self.data_config.key, self.data_config.band_wavelengths, self.data_config.band_bandwidths, self.language_embed, self.data_config.input_mode, self.data_config.kernel_size)
+    def forward(self, samples):
+        feats = self.encoder(samples)
         feats = self.neck(feats)
         out = self.decoder(feats)
         out = resize(out, size=samples.shape[2:], mode="bilinear", align_corners=False)
@@ -303,11 +234,19 @@ class DofaSRegression(LightningTask):
         # return out, out
 
     def params_to_optimize(self):
-        return (
-            list(self.neck.parameters())
-            + list(self.decoder.parameters())
-            + list(self.aux_head.parameters())
-        )
+        if self.freeze_backbone:
+            return (
+                list(self.neck.parameters())
+                + list(self.decoder.parameters())
+                + list(self.aux_head.parameters())
+            )
+        else:
+            return (
+                list(self.encoder.parameters())
+                + list(self.neck.parameters())
+                + list(self.decoder.parameters())
+                + list(self.aux_head.parameters())
+            )     
 
     def log_metrics(self, outputs, targets, prefix="train"):
 
@@ -324,12 +263,12 @@ class DofaSRegression(LightningTask):
 
 
 # Model factory for different dinov2 tasks
-def DofaSModel(args, model_config, data_config):
+def ViTModel(args, model_config, data_config):
     if args.task == "classification":
-        return DofaSClassification(args, model_config, data_config)
+        return ViTClassification(args, model_config, data_config)
     elif args.task == "segmentation":
-        return DofaSSegmentation(args, model_config, data_config)
+        return ViTSegmentation(args, model_config, data_config)
     elif args.task == "regression":
-        return DofaSRegression(args, model_config, data_config)
+        return ViTRegression(args, model_config, data_config)
     else:
         raise NotImplementedError("Task not supported")

@@ -63,6 +63,9 @@ class LightningTask(LightningModule):
         return loss
 
     def validation_step(self, batch, batch_idx):
+        #print("In validation_step, model.training =", self.training)
+        #self.training = False
+        #pdb.set_trace()
         if len(batch)==3:
             images, targets, metas = batch
         else:
@@ -80,6 +83,8 @@ class LightningTask(LightningModule):
         return loss
 
     def test_step(self, batch, batch_idx):
+        #print("In test_step, model.training =", self.training)
+        #self.training = False
         if len(batch)==3:
             images, targets, metas = batch
         else:

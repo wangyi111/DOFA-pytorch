@@ -4,7 +4,7 @@ import math
 import itertools
 import torch
 import warnings
-
+import pdb
 
 class PretrainedCROMA(nn.Module):
     def __init__(
@@ -138,9 +138,10 @@ class PretrainedCROMA(nn.Module):
             assert SAR_images is not None, (
                 f"Modality is set to {self.modality}, but SAR_images are None"
             )
-            SAR_encodings = self.s1_encoder(
-                imgs=SAR_images, attn_bias=self.attn_bias.to(SAR_images.device)
+            SAR_encodings, out_feats = self.s1_encoder(
+                imgs=SAR_images, attn_bias=self.attn_bias.to(SAR_images.device), out_indices=[2,3,4,5]
             )  # (bsz, num_patches, encoder_dim)
+            return_dict["out_feats"] = out_feats
             SAR_GAP = self.GAP_FFN_s1(SAR_encodings.mean(dim=1))  # (bsz, encoder_dim)
             return_dict["SAR_encodings"] = SAR_encodings
             return_dict["SAR_GAP"] = SAR_GAP
@@ -150,7 +151,7 @@ class PretrainedCROMA(nn.Module):
                 f"Modality is set to {self.modality}, but optical_images are None"
             )
             optical_encodings, out_feats = self.s2_encoder(
-                imgs=optical_images, attn_bias=self.attn_bias.to(optical_images.device)
+                imgs=optical_images, attn_bias=self.attn_bias.to(optical_images.device), out_indices=[3,5,7,11]
             )  # (bsz, num_patches, encoder_dim)
             return_dict["out_feats"] = out_feats
             optical_GAP = self.GAP_FFN_s2(
@@ -351,11 +352,11 @@ class BaseTransformer(nn.Module):
         if self.final_norm:
             self.norm_out = nn.LayerNorm(dim)
 
-    def forward(self, x, relative_position_bias=False):
-        out_indices = [3, 5, 7, 11]
+    def forward(self, x, relative_position_bias=False, out_indices=[3, 5, 7, 11]):
+        #out_indices = [3, 5, 7, 11]
         i = 0
         out_features = []
-
+        #pdb.set_trace()
         for self_attn, ffn in self.layers:
             x = self_attn(x, relative_position_bias) + x  # (BSZ, num_patches, dim)
             x = ffn(x) + x  # (BSZ, num_patches, dim)
@@ -429,7 +430,7 @@ class ViT(nn.Module):
             num_heads=self.num_heads,
         )
 
-    def forward(self, imgs, attn_bias):
+    def forward(self, imgs, attn_bias, out_indices=None):
         x = rearrange(
             imgs,
             "b c (h i) (w j) -> b (h w) (c i j)",
@@ -439,6 +440,6 @@ class ViT(nn.Module):
         # x is shape -> (bsz, num_patches, self.channels*self.patch_size*self.patch_size)
 
         x = self.linear_input(x)  # (bsz, num_patches, dim)
-        x, out_features = self.transformer(x, relative_position_bias=attn_bias)
+        x, out_features = self.transformer(x, relative_position_bias=attn_bias, out_indices=out_indices)
         # return out_features
         return x, out_features

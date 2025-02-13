@@ -1,112 +1,142 @@
 import kornia as K
 import torch
-from torchgeo.datasets import CloudCoverDetection
-from typing import ClassVar, TypeAlias
+from torchgeo.datasets.geo import NonGeoDataset
+import os
 from collections.abc import Callable, Sequence
 from torch import Tensor
-from datetime import date
-import os
-import pandas as pd
 import numpy as np
 import rasterio
+import cv2
 from pyproj import Transformer
+from datetime import date
+from typing import TypeAlias, ClassVar
+import pathlib
+from shapely import wkt
+import pandas as pd
+import tacoreader
 
+import logging
+import pdb
+
+logging.getLogger("rasterio").setLevel(logging.ERROR)
 Path: TypeAlias = str | os.PathLike[str]
 
-class SenBenchCloudS2(CloudCoverDetection):
+class SenBenchCloudS2(NonGeoDataset):
     url = None
-    all_bands = ('B02', 'B03', 'B04', 'B08')
-    splits: ClassVar[dict[str, str]] = {'train': 'public', 'val': 'private', 'test': 'private'}
+    #base_dir = 'all_imgs'
+    all_band_names = ('B01', 'B02', 'B03', 'B04', 'B05', 'B06', 'B07', 'B08', 'B8A', 'B09', 'B10', 'B11', 'B12')
+
+    split_filenames = {
+        'train': 'cloudsen12-l1c-train.taco',
+        'val': 'cloudsen12-l1c-val.taco',
+        'test': 'cloudsen12-l1c-test.taco',
+    }
+
+    Cls_index_multi = {
+        'clear': 0,
+        'thick cloud': 1,
+        'thin cloud': 2,
+        'cloud shadow': 3,
+    }
+
+
 
     def __init__(
         self,
         root: Path = 'data',
         split: str = 'train',
-        bands: Sequence[str] = all_bands,
+        bands: Sequence[str] = all_band_names,
         transforms: Callable[[dict[str, Tensor]], dict[str, Tensor]] | None = None,
         download: bool = False,
     ) -> None:
 
-        #super().__init__(root=root, split=split, bands=bands, transforms=transforms, download=download)
-        assert split in self.splits
-        assert set(bands) <= set(self.all_bands)
-
         self.root = root
-        self.split = split
-        self.bands = bands
         self.transforms = transforms
         self.download = download
+        #self.checksum = checksum
 
-        self.csv = os.path.join(self.root, self.split, f'{self.split}_metadata.csv')
-        self._verify()
+        assert split in ['train', 'val', 'test']
 
-        self.metadata = pd.read_csv(self.csv)
-        
+        self.bands = bands
+        self.band_indices = [(self.all_band_names.index(b)+1) for b in bands if b in self.all_band_names]
+
+        taco_file = os.path.join(root,self.split_filenames[split])
+        self.dataset = tacoreader.load(taco_file)
+        self.cache = {}
+
+        # filter corrupted entries
+        count = 0
+        count_corrupted = 0
+        #pdb.set_trace()
+        for i in range(len(self.dataset)):
+            try:
+                sample = self.dataset.read(i)
+                s2l1c = sample.read(0) # str
+                target = sample.read(1) # str
+                coord = sample['stac:centroid'][0] # str
+                time_start = sample['stac:time_start'][0] # str
+                self.cache[count] = (s2l1c, target, coord, time_start)
+                count += 1
+            except Exception as e:
+                count_corrupted += 1
+        self.length = count
+        print(split,count,"valid samples.")
+
         self.reference_date = date(1970, 1, 1)
         self.patch_area = (16*10/1000)**2 # patchsize 16 pix, gsd 10m
 
-    def __getitem__(self, index: int) -> dict[str, Tensor]:
-        """Returns a sample from dataset.
+    def __len__(self):
+        return self.length
 
-        Args:
-            index: index to return
+    def __getitem__(self, index):
 
-        Returns:
-            data, metadata (lon,lat,days,area) and label at given index
-        """
-        chip_id = self.metadata.iat[index, 0]
-        date_str = self.metadata.iat[index, 2]
-        date_obj = date(int(date_str[:4]), int(date_str[5:7]), int(date_str[8:10]))
+        #pdb.set_trace()
+
+        # if index not in self.cache:
+        #     sample = self.dataset.read(index)
+        #     s2l1c = sample.read(0) # str
+        #     target = sample.read(1) # str
+        #     coord = sample['stac:centroid'][0] # str
+        #     time_start = sample['stac:time_start'][0] # str
+        #     self.cache[index] = (s2l1c, target, coord, time_start)
+        # else:
+        #pdb.set_trace()
+        s2l1c, target, coord, time_start = self.cache[index]
+
+        # Open the files and load data
+        with rasterio.open(s2l1c) as src, rasterio.open(target) as dst:
+            s2l1c_data = src.read(self.band_indices).astype('float32')
+            target_data = dst.read(1)
+        image = torch.from_numpy(s2l1c_data)
+        label = torch.from_numpy(target_data).long()
+        
+        coord = wkt.loads(coord).coords[0]
+        date_obj = pd.to_datetime(time_start, unit='s').date()
         delta = (date_obj - self.reference_date).days
-
-        image, coord = self._load_image(chip_id)
-        label = self._load_target(chip_id)
-
         meta_info = np.array([coord[0], coord[1], delta, self.patch_area]).astype(np.float32)
+        meta_info = torch.from_numpy(meta_info)
 
-        sample = {'image': image, 'mask': label, 'meta': torch.from_numpy(meta_info)}
+        sample = {'image': image, 'mask': label, 'meta': meta_info}
 
         if self.transforms is not None:
             sample = self.transforms(sample)
 
-        # # add metadata
-        # sample['meta'] = torch.from_numpy(meta_info)
-
         return sample
-
-    def _load_image(self, chip_id: str) -> Tensor:
-        """Load all source images for a chip.
-
-        Args:
-            chip_id: ID of the chip.
-
-        Returns:
-            a tensor of stacked source image data, coord (lon,lat)
-        """
-        path = os.path.join(self.root, self.split, f'{self.split}_features', chip_id)
-        images = []
-        coords = None
-        for band in self.bands:
-            with rasterio.open(os.path.join(path, f'{band}.tif')) as src:
-                images.append(src.read(1).astype(np.float32))
-                if coords is None:
-                    cx,cy = src.xy(src.height // 2, src.width // 2)
-                    if src.crs.to_string() != 'EPSG:4326':
-                        crs_transformer = Transformer.from_crs(src.crs, 'epsg:4326', always_xy=True)
-                        lon, lat = crs_transformer.transform(cx,cy)
-                    else:
-                        lon, lat = cx, cy
-
-        return torch.from_numpy(np.stack(images, axis=0)), (lon,lat)
-
 
 
 class SegDataAugmentation(torch.nn.Module):
-    def __init__(self, split, size):
+    def __init__(self, split, size, band_stats):
         super().__init__()
 
-        mean = torch.Tensor([0.0])
-        std = torch.Tensor([1.0])
+        if band_stats is not None:
+            mean = band_stats['mean']
+            std = band_stats['std']
+        else:
+            mean = [0.0]
+            std = [1.0]
+
+        mean = torch.Tensor(mean)
+        std = torch.Tensor(std)
 
         self.norm = K.augmentation.Normalize(mean=mean, std=std)
 
@@ -132,24 +162,27 @@ class SegDataAugmentation(torch.nn.Module):
         x_out, mask_out = self.transform(x, mask)
         return x_out.squeeze(0), mask_out.squeeze(0).squeeze(0), batch["meta"]
 
+
 class SenBenchCloudS2Dataset:
     def __init__(self, config):
         self.dataset_config = config
         self.img_size = (config.image_resolution, config.image_resolution)
         self.root_dir = config.data_path
+        self.bands = config.band_names
+        self.band_stats = config.band_stats
 
     def create_dataset(self):
-        train_transform = SegDataAugmentation(split="train", size=self.img_size)
-        eval_transform = SegDataAugmentation(split="test", size=self.img_size)
+        train_transform = SegDataAugmentation(split="train", size=self.img_size, band_stats=self.band_stats)
+        eval_transform = SegDataAugmentation(split="test", size=self.img_size, band_stats=self.band_stats)
 
         dataset_train = SenBenchCloudS2(
-            root=self.root_dir, split="train", transforms=train_transform
+            root=self.root_dir, split="train", bands=self.bands, transforms=train_transform
         )
         dataset_val = SenBenchCloudS2(
-            root=self.root_dir, split="val", transforms=eval_transform
+            root=self.root_dir, split="val", bands=self.bands, transforms=eval_transform
         )
         dataset_test = SenBenchCloudS2(
-            root=self.root_dir, split="test", transforms=eval_transform
+            root=self.root_dir, split="test", bands=self.bands, transforms=eval_transform
         )
 
         return dataset_train, dataset_val, dataset_test

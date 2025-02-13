@@ -151,8 +151,8 @@ class SenBenchLC100S3Seg(NonGeoDataset):
                 chs = []
                 for b in range(21):
                     ch = img[b]*self.all_band_scale[b]
-                    #ch = cv2.resize(ch, (96,96), interpolation=cv2.INTER_CUBIC)
-                    ch = cv2.resize(ch, (282,282), interpolation=cv2.INTER_CUBIC)
+                    ch = cv2.resize(ch, (96,96), interpolation=cv2.INTER_CUBIC)
+                    #ch = cv2.resize(ch, (282,282), interpolation=cv2.INTER_CUBIC)
                     chs.append(ch)
                 img = np.stack(chs)
                 img = torch.from_numpy(img).float()
@@ -193,7 +193,8 @@ class SenBenchLC100S3Seg(NonGeoDataset):
 
         with rasterio.open(label_path) as src:
             label = src.read(1)
-            label = cv2.resize(label, (282,282), interpolation=cv2.INTER_NEAREST) # 0-650
+            #label = cv2.resize(label, (282,282), interpolation=cv2.INTER_NEAREST) # 0-650
+            label = cv2.resize(label, (96,96), interpolation=cv2.INTER_NEAREST) # 0-650
             label_new = np.zeros_like(label)
             for k,v in self.LC100_CLSID.items():
                 label_new[label==k] = v
@@ -204,11 +205,18 @@ class SenBenchLC100S3Seg(NonGeoDataset):
 
 
 class SegDataAugmentation(torch.nn.Module):
-    def __init__(self, split, size):
+    def __init__(self, split, size, band_stats):
         super().__init__()
 
-        mean = torch.Tensor([0.0])
-        std = torch.Tensor([1.0])
+        if band_stats is not None:
+            mean = band_stats['mean']
+            std = band_stats['std']
+        else:
+            mean = [0.0]
+            std = [1.0]
+
+        mean = torch.Tensor(mean)
+        std = torch.Tensor(std)
 
         self.norm = K.augmentation.Normalize(mean=mean, std=std)
 
@@ -242,10 +250,11 @@ class SenBenchLC100S3SegDataset:
         self.root_dir = config.data_path
         self.bands = config.band_names
         self.mode = config.mode
+        self.band_stats = config.band_stats
 
     def create_dataset(self):
-        train_transform = SegDataAugmentation(split="train", size=self.img_size)
-        eval_transform = SegDataAugmentation(split="test", size=self.img_size)
+        train_transform = SegDataAugmentation(split="train", size=self.img_size, band_stats=self.band_stats)
+        eval_transform = SegDataAugmentation(split="test", size=self.img_size, band_stats=self.band_stats)
 
         dataset_train = SenBenchLC100S3Seg(
             root=self.root_dir, split="train", bands=self.bands, mode=self.mode, transforms=train_transform

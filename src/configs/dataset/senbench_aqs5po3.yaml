@@ -10,8 +10,10 @@ masknan: true
 data_path: /home/ge86wof2/sentinelbench/airquality_s5p
 modality: o3
 mode: annual # seasonal
+band_names: ['O3_column_number_density'] # not used
 band_wavelengths: [300]
 band_bandwidths: [30]
+band_stats: null
 image_resolution: 56
 multilabel: false
 #ignore_index: null

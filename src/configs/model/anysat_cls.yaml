@@ -1,11 +1,11 @@
 defaults:
   - base_model
 
-model_type: dofa
+model_type: anysat
 task: classification
-dofa_size: dofa_base #dofa_large
+#dofa_size: dofa_base #dofa_large
 image_resolution: 224
 embed_dim: 768 #1024
-pretrained_path: "DOFA_ViT_base_e100.pth"
+#pretrained_path: "DOFA_ViT_base_e100.pth"
 full_finetune: false
-out_features: true
+

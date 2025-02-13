@@ -23,9 +23,9 @@ class SenBenchDFC2020(NonGeoDataset):
     splits = ('train', 'val', 'test')
 
     label_filenames = {
-        'train': 'dfc-train.csv',
-        'val': 'dfc-val.csv',
-        'test': 'dfc-test.csv',
+        'train': 'dfc-train-new.csv',
+        'val': 'dfc-val-new.csv',
+        'test': 'dfc-test-new.csv',
     }
     s1_band_names = (
         'VV', 'VH'
@@ -40,15 +40,17 @@ class SenBenchDFC2020(NonGeoDataset):
         'Background': 0, # to be ignored
         'Forest': 1,
         'Shrubland': 2,
-        'Savanna': 3,
+        'Savanna': 3, # none, to be ignored
         'Grassland': 4,
         'Wetland': 5,
         'Cropland': 6,
         'Urban/Built-up': 7,
-        'Snow/Ice': 8,
+        'Snow/Ice': 8, # none, to be ignored
         'Barren': 9,
         'Water': 10
     }
+
+    cls_mapping = {0:255, 1:0, 2:1, 3:255, 4:2, 5:3, 6:4, 7:5, 8:255, 9:6, 10:7} # 8 valid classes
 
     def __init__(
         self,
@@ -139,59 +141,30 @@ class SenBenchDFC2020(NonGeoDataset):
 
         with rasterio.open(label_path) as src:
             label = src.read(1)
-            label[label==0] = 256
-            label = label - 1
-            labels = torch.from_numpy(label).long()
+            # label[label==0] = 256
+            # label = label - 1
+            label_remap = label.copy()
+            for orig_label, new_label in self.cls_mapping.items():
+                label_remap[label == orig_label] = new_label
+
+            labels = torch.from_numpy(label_remap).long()
 
         return labels
 
 
 
 class SegDataAugmentation(torch.nn.Module):
-    BAND_STATS = {
-        'mean': {
-            'B01': 1353.72696296,
-            'B02': 1117.20222222,
-            'B03': 1041.8842963,
-            'B04': 946.554,
-            'B05': 1199.18896296,
-            'B06': 2003.00696296,
-            'B07': 2374.00874074,
-            'B08': 2301.22014815,
-            'B8A': 2599.78311111,
-            'B09': 732.18207407,
-            'B10': 12.09952894,
-            'B11': 1820.69659259,
-            'B12': 1118.20259259,
-            'VV': -12.54847273,
-            'VH': -20.19237134
-        },
-        'std': {
-            'B01': 897.27143653,
-            'B02': 736.01759721,
-            'B03': 684.77615743,
-            'B04': 620.02902871,
-            'B05': 791.86263829,
-            'B06': 1341.28018273,
-            'B07': 1595.39989386,
-            'B08': 1545.52915718,
-            'B8A': 1750.12066835,
-            'B09': 475.11595216,
-            'B10': 98.26600935,
-            'B11': 1216.48651476,
-            'B12': 736.6981037,
-            'VV': 5.25697717,
-            'VH': 5.91150917
-        }
-    }
-    def __init__(self, split, size, bands):
+
+    def __init__(self, split, size, band_stats):
         super().__init__()
 
-        mean = []
-        std = []
-        for band in bands:
-            mean.append(self.BAND_STATS['mean'][band])
-            std.append(self.BAND_STATS['std'][band])
+        if band_stats is not None:
+            mean = band_stats['mean']
+            std = band_stats['std']
+        else:
+            mean = [0.0]
+            std = [1.0]
+
         mean = torch.Tensor(mean)
         std = torch.Tensor(std)
 
@@ -200,6 +173,7 @@ class SegDataAugmentation(torch.nn.Module):
         if split == "train":
             self.transform = K.augmentation.AugmentationSequential(
                 K.augmentation.Resize(size=size, align_corners=True),
+                #K.augmentation.RandomResizedCrop(size=size, scale=(0.8,1.0)),
                 K.augmentation.RandomRotation(degrees=90, p=0.5, align_corners=True),
                 K.augmentation.RandomHorizontalFlip(p=0.5),
                 K.augmentation.RandomVerticalFlip(p=0.5),
@@ -227,10 +201,11 @@ class SenBenchDFC2020Dataset:
         self.root_dir = config.data_path
         self.bands = config.band_names
         self.modality = config.modality
+        self.band_stats = config.band_stats
 
     def create_dataset(self):
-        train_transform = SegDataAugmentation(split="train", size=self.img_size, bands=self.bands)
-        eval_transform = SegDataAugmentation(split="test", size=self.img_size, bands=self.bands)
+        train_transform = SegDataAugmentation(split="train", size=self.img_size, band_stats=self.band_stats)
+        eval_transform = SegDataAugmentation(split="test", size=self.img_size, band_stats=self.band_stats)
 
         dataset_train = SenBenchDFC2020(
             root=self.root_dir, split="train", bands=self.bands, modality=self.modality, transforms=train_transform

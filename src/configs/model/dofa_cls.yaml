@@ -3,9 +3,9 @@ defaults:
 
 model_type: dofa
 task: classification
-dofa_size: dofa_large
+dofa_size: dofa_base
 image_resolution: 224
-embed_dim: 1024
-pretrained_path: "DOFA_ViT_large_e100.pth"
-full_finetune: true
-
+embed_dim: 768
+pretrained_path: "DOFA_ViT_base_e100.pth"
+full_finetune: false
+out_features: true

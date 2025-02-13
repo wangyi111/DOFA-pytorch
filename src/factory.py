@@ -10,6 +10,7 @@ from foundation_models import (
     SatMAEModel,
     AnySatModel,
     DofaSModel,
+    ViTModel
 )
 from datasets.geobench_wrapper import GeoBenchDataset
 from datasets.resisc_wrapper import Resics45Dataset
@@ -39,6 +40,7 @@ model_registry = {
     "anysat": AnySatModel,
     # Add other model mappings here
     "dofas": DofaSModel,
+    "vit": ViTModel,
 }
 
 dataset_registry = {

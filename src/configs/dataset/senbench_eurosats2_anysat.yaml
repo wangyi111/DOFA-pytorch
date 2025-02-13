@@ -1,0 +1,22 @@
+defaults:
+  - base_dataset
+
+dataset_type: senbench_eurosats2
+task: classification
+dataset_name: senbench_eurosats2
+num_classes: 10
+num_channels: 13
+data_path: /home/ge86wof2/sentinelbench/eurosat_s2ms
+band_names: ['B02', 'B03', 'B04', 'B05', 'B06', 'B07', 'B08', 'B8A', 'B11', 'B12']
+band_wavelengths: [490, 560, 665, 705, 740, 783, 842, 860, 1610, 2190]
+#band_bandwidths: [65, 35, 30, 15, 15, 20, 115, 20, 90, 180]
+band_stats:
+  mean: [1117.2,1041.8,946.5,1199.1,2003.0,2374.0,2301.2,2599.7,1820.6,1118.2]
+  std: [736.0,684.8,620.0,791.9,1341.3,1595.4,1545.5,1750.1,1216.5,736.7]
+image_resolution: 64
+multilabel: false
+ignore_index: null
+language_embed: null
+input_mode: spectral
+kernel_size: 16
+key: null # only valid for non-spectral variables

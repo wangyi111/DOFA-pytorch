@@ -205,7 +205,7 @@ class SenBenchLC100S3Cls(NonGeoDataset):
 
 class ClsDataAugmentation(torch.nn.Module):
 
-    def __init__(self, split, size, bands):
+    def __init__(self, split, size):
         super().__init__()
 
         mean = torch.Tensor([0.0])
@@ -240,8 +240,8 @@ class SenBenchLC100S3ClsDataset:
         self.mode = config.mode
 
     def create_dataset(self):
-        train_transform = ClsDataAugmentation(split="train", size=self.img_size, bands=self.bands)
-        eval_transform = ClsDataAugmentation(split="test", size=self.img_size, bands=self.bands)
+        train_transform = ClsDataAugmentation(split="train", size=self.img_size)
+        eval_transform = ClsDataAugmentation(split="test", size=self.img_size)
 
         dataset_train = SenBenchLC100S3Cls(
             root=self.root_dir, split="train", bands=self.bands, mode=self.mode, transforms=train_transform
