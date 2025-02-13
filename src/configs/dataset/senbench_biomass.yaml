@@ -1,30 +1,30 @@
 defaults:
   - base_dataset
 
-dataset_type: senbench_clouds3
-task: segmentation
-dataset_name: senbench_clouds3
-num_classes: 5 # 2
+dataset_type: senbench_biomass
+task: regression
+dataset_name: senbench_biomass
+num_classes: 1
 num_channels: 21
-data_path: /home/ge86wof2/sentinelbench/cloud_s3olci
-mode: multi # binary
+data_path: biomass_dataset_5k 
+mode: static  # or 'series'
+masknan: true
 band_names: [
   'Oa01_radiance', 'Oa02_radiance', 'Oa03_radiance', 'Oa04_radiance', 'Oa05_radiance', 'Oa06_radiance', 'Oa07_radiance',
   'Oa08_radiance', 'Oa09_radiance', 'Oa10_radiance', 'Oa11_radiance', 'Oa12_radiance', 'Oa13_radiance', 'Oa14_radiance',
   'Oa15_radiance', 'Oa16_radiance', 'Oa17_radiance', 'Oa18_radiance', 'Oa19_radiance', 'Oa20_radiance', 'Oa21_radiance']
 band_wavelengths: [
-  400, 412.5, 442.5, 490, 510, 560, 620, 
-  665, 673.75, 681.25, 708.75, 753.75, 761.25, 764.375, 
+  400, 412.5, 442.5, 490, 510, 560, 620,
+  665, 673.75, 681.25, 708.75, 753.75, 761.25, 764.375,
   767.5, 778.75, 865, 885, 900, 940, 1020]
 band_bandwidths: [
-  15, 10, 10, 10, 10, 10, 10, 
-  10, 7.5, 7.5, 10, 7.5, 7.5, 3.75, 
+  15, 10, 10, 10, 10, 10, 10,
+  10, 7.5, 7.5, 10, 7.5, 7.5, 3.75,
   2.5, 15, 20, 10, 10, 20, 40]
-band_stats: null
-image_resolution: 224
+image_resolution: 282
 multilabel: false
-ignore_index: 255
+ignore_index: null
 language_embed: null
 input_mode: spectral
 kernel_size: 8
-key: null # only valid for non-spectral variables
+key: null # only valid for non-spectral variables 
