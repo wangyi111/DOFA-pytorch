@@ -68,13 +68,15 @@ class SenBenchKuroSiwo(NonGeoDataset):
         test_acts = [321, 561, 445, 562, 411, 1111002, 277,1111007,205,1111013],
         clamp_input = 0.15,
         use_dem = False,
-        channels = [ "vv","vh"]
+        channels = [ "vv","vh"],
+        normalize = True,
     ) -> None:
 
         self.root = root
+        self.data_root = os.path.join(root, "data")
         self.transforms = transforms
         self.download = download
-
+        self.normalize = normalize
         self.water_samples_metadata = os.path.join(root,'pickles','grid_dict_water.pkl')
         self.all_samples_metadata = os.path.join(root,'pickles','grid_dict_full.pkl')
         self.channels = channels
@@ -83,6 +85,10 @@ class SenBenchKuroSiwo(NonGeoDataset):
         self.val_acts = val_acts
         self.test_acts = test_acts
         self.use_dem = use_dem
+        
+        self.clz_stats = {1: 0, 2: 0, 3: 0}
+        self.act_stats = {}
+        
         assert split in ['train', 'val', 'test']
 
         self.mode = split
@@ -177,7 +183,7 @@ class SenBenchKuroSiwo(NonGeoDataset):
         sample = self.records[index]
 
         path = sample["path"]
-        path = os.path.join(self.root_path, path)
+        path = os.path.join(self.data_root, path)
         files = os.listdir(path)
         clz = sample["clz"]
         activation = sample["activation"]
@@ -224,19 +230,14 @@ class SenBenchKuroSiwo(NonGeoDataset):
                             dem = dem.rio.interpolate_na()
                             nans = dem.isnull()
 
-                        nodata = dem.rio.nodata
                         dem = dem.to_numpy()
-                        if not self.configs["dem"] and self.configs["slope"]:
-                            print("To return the slope the DEM option must be enabled. Validate the config file!")
-                            exit(2)
-
-                        
-                    
-                        dem_normalization = transforms.Normalize(
-                                mean=self.configs["dem_mean"],
-                                std=self.configs["dem_std"],
-                            )
-                        dem = dem_normalization(torch.from_numpy(dem))
+                                                
+                        if self.normalize:
+                            dem_normalization = transforms.Normalize(
+                                    mean=self.configs["dem_mean"],
+                                    std=self.configs["dem_std"],
+                                )
+                            dem = dem_normalization(torch.from_numpy(dem))
                     else:
                         dem = None
 
@@ -266,9 +267,9 @@ class SenBenchKuroSiwo(NonGeoDataset):
 
         mask = mask.long()
 
-        data_normalization = transforms.Normalize(self.means, self.stds)
-        # Scale images if necessary
-        if self.configs["scale_input"] is not None:
+        if self.normalize:
+            # Normalize samples
+            data_normalization = transforms.Normalize(self.data_mean, self.data_std)
             valid_mask = valid_mask == 1
             flood = data_normalization(flood)
             pre_event_1 = data_normalization(pre_event_1)
@@ -276,8 +277,54 @@ class SenBenchKuroSiwo(NonGeoDataset):
 
         return flood, mask, pre_event_1, pre_event_2, dem
 
+    def plot_samples(self,flood, mask, pre_event_1, pre_event_2, dem,savefig_path=None):
+        """
+
+        Args:
+            flood: post flood event SAR. Assumes both VV and VH channels. Plots first channel.
+            mask: mask of flooded/perm water pixels
+            pre_event_1: 1st SAR before flood event. Assumes both VV and VH channels. Plots first channel.
+            pre_event_2: 2nd SAR before flood event. Assumes both VV and VH channels. Plots first channel.
+            dem: DEM
+            savefig_path: path to save the figure. Optional.
+        """
+        import matplotlib.pyplot as plt
+        from matplotlib.colors import ListedColormap
+        num_figures = 5 if self.use_dem else 4
+        fig, axs = plt.subplots(1, num_figures, figsize=(20, 5))
+        
+        cmap = ListedColormap(['black', 'lightblue', 'purple','green'])
+
+        axs[0].set_title("Flood")
+        axs[1].set_title("Pre-event 1")
+        axs[2].set_title("Pre-event 2")            
+        axs[0].imshow(flood[0], cmap="gray")
+        axs[1].imshow(pre_event_1[0], cmap="gray")
+        axs[2].imshow(pre_event_2[0],cmap="gray")
+        if self.use_dem:
+            axs[3].imshow(dem.squeeze())
+            axs[3].set_title("DEM")
+            img = axs[4].imshow(mask, cmap=cmap)
+            cbar = fig.colorbar(img, ax=axs[4])
+            axs[4].set_title("Mask")
+        else:
+            img = axs[3].imshow(mask, cmap=cmap)
+            axs[3].colorbar()
+            axs[3].set_title("Mask")
+        cbar.set_ticks([0, 1, 2, 3])
+        cbar.set_ticklabels(['No water', 'Permanent Waters', 'Flood','Out of AOI'])
+        if savefig_path is not None:
+            plt.savefig(savefig_path)
+        plt.show()
 
 #Main function
 if __name__ == "__main__":
-    d = SenBenchKuroSiwo(root="")
-    print(len(d))
+    d = SenBenchKuroSiwo(root="root_path", use_dem=True, normalize=False,clamp_input=1.,train_on_water_samples_only=True)
+    flood, mask, pre_event_1, pre_event_2, dem = d[0]
+    print(flood.shape)
+    for i in range(10):
+        flood, mask, pre_event_1, pre_event_2, dem = d[i]
+        if mask.sum() > 0: 
+            print(f"Mask sum: {(mask==2).sum()}")
+            d.plot_samples(flood, mask, pre_event_1, pre_event_2, dem, savefig_path=f"sample_{i}.png")
+            break
