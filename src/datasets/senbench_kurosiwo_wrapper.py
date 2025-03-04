@@ -9,10 +9,12 @@ from datetime import date
 from typing import TypeAlias, ClassVar
 import rioxarray as rio
 from torchvision import transforms
-
+import kornia as K
 import logging
 import pickle
 import cv2 as cv
+from datetime import datetime
+
 
 logging.getLogger("rasterio").setLevel(logging.ERROR)
 Path: TypeAlias = str | os.PathLike[str]
@@ -69,14 +71,12 @@ class SenBenchKuroSiwo(NonGeoDataset):
         clamp_input = 0.15,
         use_dem = False,
         channels = [ "vv","vh"],
-        normalize = True,
     ) -> None:
 
         self.root = root
         self.data_root = os.path.join(root, "data")
-        self.transforms = transforms
         self.download = download
-        self.normalize = normalize
+        self.transforms = transforms
         self.water_samples_metadata = os.path.join(root,'pickles','grid_dict_water.pkl')
         self.all_samples_metadata = os.path.join(root,'pickles','grid_dict_full.pkl')
         self.channels = channels
@@ -85,7 +85,7 @@ class SenBenchKuroSiwo(NonGeoDataset):
         self.val_acts = val_acts
         self.test_acts = test_acts
         self.use_dem = use_dem
-        
+        self.patch_area = (224*10/1000)**2 # patchsize 224 pix, gsd 10m
         self.clz_stats = {1: 0, 2: 0, 3: 0}
         self.act_stats = {}
         
@@ -188,7 +188,6 @@ class SenBenchKuroSiwo(NonGeoDataset):
         clz = sample["clz"]
         activation = sample["activation"]
         mask = None
-
         for file in files:
             current_path = str(os.path.join(path, file))
             if "xml" not in file:
@@ -200,27 +199,41 @@ class SenBenchKuroSiwo(NonGeoDataset):
                     valid_mask = cv.imread(current_path, cv.IMREAD_ANYDEPTH)
                 elif file.startswith("MS1_IVV") and (sample["type"] not in ["pre1", "pre2"]):
                     # Get master ivv channel
-                    flood_vv = cv.imread(current_path, cv.IMREAD_ANYDEPTH)                        
+                    flood_vv = rio.open_rasterio(current_path)
+                    post_date = file.split("_")[-1][:-4]
+                    post_date = datetime.strptime(post_date, "%Y%m%d")    
+                   
+                    
+                    center_x_pixel = flood_vv.shape[2] // 2
+                    center_y_pixel = flood_vv.shape[1] // 2
+                    lon = flood_vv.x.values[center_x_pixel]
+                    lat = flood_vv.y.values[center_y_pixel]    
+                    if flood_vv.rio.crs.to_string() != "EPSG:4326":
+                        transformer = Transformer.from_crs(flood_vv.rio.crs, "EPSG:4326", always_xy=True)
+                        lon, lat = transformer.transform(lon, lat)
+                    flood_vv = flood_vv.to_numpy().squeeze()  
 
                 elif file.startswith("MS1_IVH") and (sample["type"] not in ["pre1", "pre2"]):
                     # Get master ivh channel
-                    flood_vh = cv.imread(current_path, cv.IMREAD_ANYDEPTH)
+                    flood_vh = rio.open_rasterio(current_path).to_numpy().squeeze()
                     
                 elif file.startswith("SL1_IVV") and (sample["type"] not in ["flood", "pre2"]):
                     # Get slave1 vv channel
-                    sec1_vv = cv.imread(current_path, cv.IMREAD_ANYDEPTH)
-
+                    sec1_vv = rio.open_rasterio(current_path).to_numpy().squeeze()
+                    pre1_date = file.split("_")[-1][:-4]
+                    pre1_date = datetime.strptime(pre1_date, "%Y%m%d")    
                 elif file.startswith("SL1_IVH") and (sample["type"] not in ["flood", "pre2"]):
                     # Get sl1 vh channel
-                    sec1_vh = cv.imread(current_path, cv.IMREAD_ANYDEPTH)
+                    sec1_vh = rio.open_rasterio(current_path).to_numpy().squeeze()
 
                 elif file.startswith("SL2_IVV") and (sample["type"] not in ["flood", "pre1"]):
                     # Get sl2 vv channel
-                    sec2_vv = cv.imread(current_path, cv.IMREAD_ANYDEPTH)
-
+                    sec2_vv = rio.open_rasterio(current_path).to_numpy().squeeze()
+                    pre2_date = file.split("_")[-1][:-4]
+                    pre2_date = datetime.strptime(pre2_date, "%Y%m%d")    
                 elif file.startswith("SL2_IVH") and (sample["type"] not in ["flood", "pre1"]):
                     # Get sl2 vh channel
-                    sec2_vh = cv.imread(current_path, cv.IMREAD_ANYDEPTH)
+                    sec2_vh = rio.open_rasterio(current_path).to_numpy().squeeze()
                 elif file.startswith("MK0_DEM"):
                     if self.use_dem:
                         # Get DEM
@@ -231,13 +244,7 @@ class SenBenchKuroSiwo(NonGeoDataset):
                             nans = dem.isnull()
 
                         dem = dem.to_numpy()
-                                                
-                        if self.normalize:
-                            dem_normalization = transforms.Normalize(
-                                    mean=self.configs["dem_mean"],
-                                    std=self.configs["dem_std"],
-                                )
-                            dem = dem_normalization(torch.from_numpy(dem))
+                                            
                     else:
                         dem = None
 
@@ -267,24 +274,28 @@ class SenBenchKuroSiwo(NonGeoDataset):
 
         mask = mask.long()
 
-        if self.normalize:
-            # Normalize samples
-            data_normalization = transforms.Normalize(self.data_mean, self.data_std)
-            valid_mask = valid_mask == 1
-            flood = data_normalization(flood)
-            pre_event_1 = data_normalization(pre_event_1)
-            pre_event_2 = data_normalization(pre_event_2)
+        image = torch.vstack([flood, pre_event_1, pre_event_2])
+        if self.use_dem:
+            image = torch.vstack([image, torch.from_numpy(dem)]) 
+        
+        
+        #Get avg difference between pre-event 1, pre-event 2 and post date
+        pre1_diff = (post_date - pre1_date).days
+        pre2_diff = (post_date - pre2_date).days
+        avg_diff = (pre1_diff + pre2_diff) / 2
+        meta_info = np.array([lon, lat, avg_diff, self.patch_area]).astype(np.float32)
+        meta_info = torch.from_numpy(meta_info)
+        sample = {"image": image, "groundtruth": mask, "meta": meta_info}
+        if self.transforms is not None:
+            sample = self.transforms(sample)
+        return sample
 
-        return flood, mask, pre_event_1, pre_event_2, dem
-
-    def plot_samples(self,flood, mask, pre_event_1, pre_event_2, dem,savefig_path=None):
+    def plot_samples(self,image, mask,savefig_path=None):
         """
 
         Args:
-            flood: post flood event SAR. Assumes both VV and VH channels. Plots first channel.
+            image: stacked SAR. Assumes both VV and VH channels. Sequence represents flood, pre_event1, pre_event 2 SAR. Plots first channel for each timestep.
             mask: mask of flooded/perm water pixels
-            pre_event_1: 1st SAR before flood event. Assumes both VV and VH channels. Plots first channel.
-            pre_event_2: 2nd SAR before flood event. Assumes both VV and VH channels. Plots first channel.
             dem: DEM
             savefig_path: path to save the figure. Optional.
         """
@@ -294,7 +305,12 @@ class SenBenchKuroSiwo(NonGeoDataset):
         fig, axs = plt.subplots(1, num_figures, figsize=(20, 5))
         
         cmap = ListedColormap(['black', 'lightblue', 'purple','green'])
-
+        flood = image[:2]
+        pre_event_1 = image[2:4]
+        pre_event_2 = image[4:6]
+        if self.use_dem:
+            print(image.shape)
+            dem = image[6]
         axs[0].set_title("Flood")
         axs[1].set_title("Pre-event 1")
         axs[2].set_title("Pre-event 2")            
@@ -304,7 +320,7 @@ class SenBenchKuroSiwo(NonGeoDataset):
         if self.use_dem:
             axs[3].imshow(dem.squeeze())
             axs[3].set_title("DEM")
-            img = axs[4].imshow(mask, cmap=cmap)
+            img = axs[4].imshow(mask, cmap=cmap,vmin=0, vmax=3)
             cbar = fig.colorbar(img, ax=axs[4])
             axs[4].set_title("Mask")
         else:
@@ -317,14 +333,78 @@ class SenBenchKuroSiwo(NonGeoDataset):
             plt.savefig(savefig_path)
         plt.show()
 
+
+
+class KuroSiwoDataAugmentation(torch.nn.Module):
+    def __init__(self, split, size, band_stats):
+        super().__init__()
+
+        if band_stats is not None:
+            mean = band_stats['mean']
+            std = band_stats['std']
+        else:
+            mean = [0.0]
+            std = [1.0]
+
+        mean = torch.Tensor(mean)
+        std = torch.Tensor(std)
+
+        self.norm = K.augmentation.Normalize(mean=mean, std=std)
+
+        if split == "train":
+            self.transform = K.augmentation.AugmentationSequential(
+                K.augmentation.Resize(size=size, align_corners=True),
+                K.augmentation.RandomRotation(degrees=90, p=0.5, align_corners=True),
+                K.augmentation.RandomHorizontalFlip(p=0.5),
+                K.augmentation.RandomVerticalFlip(p=0.5),
+                data_keys=["input", "mask"],
+            )
+        else:
+            self.transform = K.augmentation.AugmentationSequential(
+                K.augmentation.Resize(size=size, align_corners=True),
+                data_keys=["input", "mask"],
+            )
+
+    @torch.no_grad()
+    def forward(self, batch: dict[str,]):
+        """Torchgeo returns a dictionary with 'image' and 'label' keys, but engine expects a tuple"""
+        x,mask = batch["image"], batch["groundtruth"]
+        x = self.norm(x)
+        x_out, mask_out = self.transform(x, mask)
+        return x_out.squeeze(0), mask_out.squeeze(0).squeeze(0), batch["meta"]
+
+
+class SenBenchKuroSiwoDataset:
+    def __init__(self, config):
+        self.dataset_config = config
+        self.img_size = (config.image_resolution, config.image_resolution)
+        self.root_dir = config.data_path
+        self.bands = config.band_names
+        self.band_stats = config.band_stats
+
+    def create_dataset(self):
+        train_transform = KuroSiwoDataAugmentation(split="train", size=self.img_size, band_stats=self.band_stats)
+        eval_transform = KuroSiwoDataAugmentation(split="test", size=self.img_size, band_stats=self.band_stats)
+
+        dataset_train = SenBenchKuroSiwo(
+            root=self.root_dir, split="train", bands=self.bands, transforms=train_transform
+        )
+        dataset_val = SenBenchKuroSiwo(
+            root=self.root_dir, split="val", bands=self.bands, transforms=eval_transform
+        )
+        dataset_test = SenBenchKuroSiwo(
+            root=self.root_dir, split="test", bands=self.bands, transforms=eval_transform
+        )
+
+        return dataset_train, dataset_val, dataset_test
+
 #Main function
 if __name__ == "__main__":
-    d = SenBenchKuroSiwo(root="root_path", use_dem=True, normalize=False,clamp_input=1.,train_on_water_samples_only=True)
-    flood, mask, pre_event_1, pre_event_2, dem = d[0]
-    print(flood.shape)
-    for i in range(10):
-        flood, mask, pre_event_1, pre_event_2, dem = d[i]
-        if mask.sum() > 0: 
-            print(f"Mask sum: {(mask==2).sum()}")
-            d.plot_samples(flood, mask, pre_event_1, pre_event_2, dem, savefig_path=f"sample_{i}.png")
-            break
+    transforms = KuroSiwoDataAugmentation(split="train", size=(224, 224), band_stats= None)#{"mean":[0.0904, 0.0241]*3 + [ 82.96274925580951 ],"std": [0.0468, 0.0226]*3 + [ 153.71243439980663]})
+    d = SenBenchKuroSiwo(root="Your_Path", use_dem=True,transforms=transforms,clamp_input=1.,train_on_water_samples_only=True)
+    data, mask, meta = d[0]
+    print(data.shape)
+    d.plot_samples(image=data, mask=mask,savefig_path="sample.png")
+    print(mask.unique())
+    print(mask.shape)
+    print(meta)
