@@ -214,6 +214,62 @@ class ClsDataAugmentation(torch.nn.Module):
         return x_out, batch["label"], batch["meta"]
 
 
+class ClsDataAugmentationSoftCon(torch.nn.Module):
+
+    def __init__(self, split, size, band_stats):
+        super().__init__()
+
+        if band_stats is not None:
+            self.mean = band_stats['mean']
+            self.std = band_stats['std']
+        else:
+            self.mean = [0.0]
+            self.std = [1.0]
+
+        if split == "train":
+            self.transform = torch.nn.Sequential(
+                #K.Normalize(mean=mean, std=std),
+                K.Resize(size=size, align_corners=True),
+                K.RandomHorizontalFlip(p=0.5),
+                K.RandomVerticalFlip(p=0.5),
+            )
+        else:
+            self.transform = torch.nn.Sequential(
+                #K.Normalize(mean=mean, std=std),
+                K.Resize(size=size, align_corners=True),
+            )
+
+    @torch.no_grad()
+    def forward(self, sample: dict[str,]):
+        """Torchgeo returns a dictionary with 'image' and 'label' keys, but engine expects a tuple."""
+        sample_img = sample["image"]
+        img_bands = []
+        for b in range(10):
+            img = sample_img[b,:,:].clone()
+            ## normalize
+            img = self.normalize(img,self.mean[b],self.std[b])         
+            img_bands.append(img)
+            if b==0:
+                # pad zero to B01, B09, B10
+                img_bands.insert(b,torch.zeros_like(img))
+            if b==7:
+                img_bands.insert(b,torch.zeros_like(img))
+                img_bands.insert(b,torch.zeros_like(img))
+            
+        sample_img = torch.stack(img_bands,dim=0)
+            
+        x_out = self.transform(sample_img).squeeze(0)
+        return x_out, sample["label"], sample["meta"]
+
+    @torch.no_grad()
+    def normalize(self, img, mean, std):
+        min_value = mean - 2 * std
+        max_value = mean + 2 * std
+        img = (img - min_value) / (max_value - min_value)
+        img = torch.clamp(img, 0, 1)
+        return img
+
+
 class SenBenchSo2SatDataset:
     def __init__(self, config):
         self.dataset_config = config
@@ -222,10 +278,17 @@ class SenBenchSo2SatDataset:
         self.bands = config.band_names
         self.version = config.version
         self.band_stats = config.band_stats
+        self.norm_form = config.norm_form if 'norm_form' in config else None
+
 
     def create_dataset(self):
-        train_transform = ClsDataAugmentation(split="train", size=self.img_size, band_stats=self.band_stats)
-        eval_transform = ClsDataAugmentation(split="test", size=self.img_size, band_stats=self.band_stats)
+        if self.norm_form == 'softcon':
+            print('Norm with softcon.')
+            train_transform = ClsDataAugmentationSoftCon(split="train", size=self.img_size, band_stats=self.band_stats)
+            eval_transform = ClsDataAugmentationSoftCon(split="test", size=self.img_size, band_stats=self.band_stats)
+        else:
+            train_transform = ClsDataAugmentation(split="train", size=self.img_size, band_stats=self.band_stats)
+            eval_transform = ClsDataAugmentation(split="test", size=self.img_size, band_stats=self.band_stats)
 
         dataset_train = SenBenchSo2Sat(
             root=self.root_dir, version=self.version, split="train", bands=self.bands, transforms=train_transform

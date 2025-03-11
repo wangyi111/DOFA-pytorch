@@ -26,7 +26,7 @@ from datasets.senbench_clouds3_wrapper import SenBenchCloudS3Dataset
 from datasets.senbench_dfc2020_wrapper import SenBenchDFC2020Dataset
 from datasets.senbench_so2sat_wrapper import SenBenchSo2SatDataset
 from datasets.senbench_biomass_wrapper import SenBenchBiomassDataset
-
+from datasets.senbench_kurosiwo_wrapper import SenBenchKuroSiwoDataset
 
 model_registry = {
     "croma": CromaModel,
@@ -59,6 +59,7 @@ dataset_registry = {
     "senbench_dfc2020": SenBenchDFC2020Dataset,
     "senbench_so2sat": SenBenchSo2SatDataset,
     "senbench_biomass": SenBenchBiomassDataset,
+    "senbench_kurosiwo": SenBenchKuroSiwoDataset,
 }
 
 

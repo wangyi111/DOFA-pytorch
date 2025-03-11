@@ -195,7 +195,9 @@ class DofaSegmentation(LightningTask):
         self.model_config = model_config
         self.data_config = data_config
         if 'VV' in self.data_config.band_names and 'VH' in self.data_config.band_names:
-            self.data_config.band_wavelengths =[3750,3750]
+            for i in range(len(self.data_config.band_wavelengths)):
+                self.data_config.band_wavelengths[i] = 3750
+            #self.data_config.band_wavelengths =[3750,3750]
 
     def loss(self, outputs, labels):
         return self.criterion(outputs[0], labels) + 0.4 * self.criterion(
@@ -227,6 +229,117 @@ class DofaSegmentation(LightningTask):
         self.log(f"{prefix}_loss", loss, on_step=True, on_epoch=True, prog_bar=True)
         self.log(f"{prefix}_miou", miou, on_step=True, on_epoch=True, prog_bar=True)
         self.log(f"{prefix}_acc", acc, on_step=True, on_epoch=True, prog_bar=True)
+
+
+
+class DofaChange(LightningTask):
+    def __init__(self, args, model_config, data_config):
+        super().__init__(args, model_config, data_config)
+        self.encoder = (
+            vit_base_patch16_seg(
+                drop_path_rate=0, img_size=data_config.image_resolution,
+            )
+            if model_config.dofa_size == "dofa_base"
+            else vit_large_patch16_seg(
+                drop_path_rate=0, img_size=data_config.image_resolution,
+            )
+        )
+
+        dir = os.getenv("MODEL_WEIGHTS_DIR")
+        filename = model_config.pretrained_path
+        path = os.path.join(dir, filename)
+        if not os.path.exists(path):
+            # download the weights from HF
+            download_url(self.url.format(filename), dir, filename=filename)
+
+        # Load pretrained weights
+        check_point = torch.load(path)
+        interpolate_pos_embed_dofa(self.encoder, check_point)
+        msg = self.encoder.load_state_dict(check_point, strict=False)
+        print(msg)
+
+        if model_config.freeze_backbone:
+            self.freeze(self.encoder)
+
+        edim = model_config.embed_dim
+        self.neck = Feature2Pyramid(embed_dim=edim, rescales=[4, 2, 1, 0.5])
+        self.decoder = UPerHead(
+            in_channels=[edim] * 4,
+            in_index=[0, 1, 2, 3],
+            pool_scales=(1, 2, 3, 6),
+            channels=512,
+            dropout_ratio=0.1,
+            num_classes=data_config.num_classes,
+            norm_cfg=dict(type="SyncBN", requires_grad=True),
+            align_corners=False,
+            loss_decode=dict(
+                type="CrossEntropyLoss", use_sigmoid=False, loss_weight=1.0
+            ),
+        )
+        self.aux_head = FCNHead(
+            in_channels=edim,
+            in_index=2,
+            channels=256,
+            num_convs=1,
+            concat_input=False,
+            dropout_ratio=0.1,
+            num_classes=data_config.num_classes,
+            norm_cfg=dict(type="SyncBN", requires_grad=True),
+            align_corners=False,
+            loss_decode=dict(
+                type="CrossEntropyLoss", use_sigmoid=False, loss_weight=0.4
+            ),
+        )
+        self.criterion = nn.CrossEntropyLoss(ignore_index=data_config.ignore_index)
+
+        self.model_config = model_config
+        self.data_config = data_config
+        if 'VV' in self.data_config.band_names and 'VH' in self.data_config.band_names:
+            for i in range(len(self.data_config.band_wavelengths)):
+                self.data_config.band_wavelengths[i] = 3750
+            #self.data_config.band_wavelengths =[3750,3750]
+
+    def loss(self, outputs, labels):
+        return self.criterion(outputs[0], labels) + 0.4 * self.criterion(
+            outputs[1], labels
+        )
+
+    def forward(self, samples):
+        B,C,H,W = samples.shape
+        samples_pre = samples[:,:C//2,:,:]
+        samples_post = samples[:,C//2:,:,:]
+        feats_pre = self.encoder(samples_pre, self.data_config.band_wavelengths)
+        feats_post = self.encoder(samples_post, self.data_config.band_wavelengths)
+        feats = []
+        for i in range(len(feats_pre)):
+            feats.append(feats_post[i] - feats_pre[i])
+
+        feats = self.neck(feats)
+        out = self.decoder(feats)
+        out = resize(out, size=samples.shape[2:], mode="bilinear", align_corners=False)
+        out_a = self.aux_head(feats)
+        out_a = resize(
+            out_a, size=samples.shape[2:], mode="bilinear", align_corners=False
+        )
+        return out, out_a
+
+    def params_to_optimize(self):
+        return (
+            list(self.neck.parameters())
+            + list(self.decoder.parameters())
+            + list(self.aux_head.parameters())
+        )
+
+    def log_metrics(self, outputs, targets, prefix="train"):
+        # Calculate mIoU and other segmentation-specific metrics
+        miou, acc = seg_metric(self.data_config, outputs[0], targets)
+        loss = self.loss(outputs, targets)
+        self.log(f"{prefix}_loss", loss, on_step=True, on_epoch=True, prog_bar=True)
+        self.log(f"{prefix}_miou", miou, on_step=True, on_epoch=True, prog_bar=True)
+        self.log(f"{prefix}_acc", acc, on_step=True, on_epoch=True, prog_bar=True)
+
+
+
 
 class DofaRegression(LightningTask):
     def __init__(self, args, model_config, data_config):
@@ -349,5 +462,7 @@ def DofaModel(args, model_config, data_config):
         return DofaSegmentation(args, model_config, data_config)
     elif args.task == "regression":
         return DofaRegression(args, model_config, data_config)
+    elif args.task == "changedetection":
+        return DofaChange(args, model_config, data_config)
     else:
         raise NotImplementedError("Task not supported")

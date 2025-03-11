@@ -14,10 +14,13 @@ band_bandwidths: [1e9, 1e9]
 band_stats: # null
   mean: [-12.548, -20.192]
   std: [5.257, 5.912]
-image_resolution: 256
+  # mean: [-23.062, -32.016]
+  # std: [21.028, 23.648]
+norm_form: softcon
+image_resolution: 224 # multiplier of patch size 14
 multilabel: false
 ignore_index: 255
 language_embed: null
 input_mode: spectral
-kernel_size: 8
+kernel_size: 16
 key: null # only valid for non-spectral variables

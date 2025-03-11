@@ -6,7 +6,7 @@ task: regression
 dataset_name: senbench_biomass
 num_classes: 1
 num_channels: 21
-data_path: biomass_dataset_5k 
+data_path: /home/ge86wof2/sentinelbench/biomass_dataset_5k 
 mode: static  # or 'series'
 masknan: true
 band_names: [
@@ -21,6 +21,7 @@ band_bandwidths: [
   15, 10, 10, 10, 10, 10, 10,
   10, 7.5, 7.5, 10, 7.5, 7.5, 3.75,
   2.5, 15, 20, 10, 10, 20, 40]
+band_stats: null
 image_resolution: 282
 multilabel: false
 ignore_index: null

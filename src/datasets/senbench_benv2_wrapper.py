@@ -337,7 +337,81 @@ class ClsDataAugmentation(torch.nn.Module):
             sample["image"] = sample["image"][1:4, ...].flip(dims=(0,))
             # get in rgb order and then normalization can be applied
         x_out = self.transform(sample["image"]).squeeze(0)
-        return x_out, sample["label"]
+        return x_out, sample["label"], sample["meta"]
+
+
+class ClsDataAugmentationSoftCon(torch.nn.Module):
+
+    def __init__(self, split, size, bands, band_stats):
+        super().__init__()
+
+        self.bands = bands
+
+        if band_stats is not None:
+            self.mean = band_stats['mean']
+            self.std = band_stats['std']
+        else:
+            self.mean = [0.0]
+            self.std = [1.0]
+
+        # mean = torch.Tensor(mean)
+        # std = torch.Tensor(std)
+
+        if split == "train":
+            self.transform = torch.nn.Sequential(
+                #K.Normalize(mean=mean, std=std),
+                K.Resize(size=size, align_corners=True),
+                K.RandomHorizontalFlip(p=0.5),
+                K.RandomVerticalFlip(p=0.5),
+            )
+        else:
+            self.transform = torch.nn.Sequential(
+                #K.Normalize(mean=mean, std=std),
+                K.Resize(size=size, align_corners=True),
+            )
+
+    @torch.no_grad()
+    def forward(self, sample: dict[str,]):
+        """Torchgeo returns a dictionary with 'image' and 'label' keys, but engine expects a tuple."""
+        if self.bands == 's1':
+            sample_img = sample["image"]
+            ### normalize s1
+            self.max_q = torch.quantile(sample_img.reshape(2,-1),0.99,dim=1)      
+            self.min_q = torch.quantile(sample_img.reshape(2,-1),0.01,dim=1)
+            img_bands = []
+            for b in range(2):
+                img = sample_img[b,:,:].clone()
+                ## outlier
+                max_q = self.max_q[b]
+                min_q = self.min_q[b]            
+                img = torch.clamp(img, min_q, max_q)
+                ## normalize
+                img = self.normalize(img,self.mean[b],self.std[b])         
+                img_bands.append(img)
+            sample_img = torch.stack(img_bands,dim=0) # VV,VH (w,h,c)
+        elif self.bands == 's2':
+            sample_img = sample["image"]
+            img_bands = []
+            for b in range(12):
+                img = sample_img[b,:,:].clone()
+                ## normalize
+                img = self.normalize(img,self.mean[b],self.std[b])         
+                img_bands.append(img)
+                if b==9:
+                    # pad zero to B10
+                    img_bands.append(torch.zeros_like(img))
+            sample_img = torch.stack(img_bands,dim=0)
+            
+        x_out = self.transform(sample_img).squeeze(0)
+        return x_out, sample["label"], sample["meta"]
+
+    @torch.no_grad()
+    def normalize(self, img, mean, std):
+        min_value = mean - 2 * std
+        max_value = mean + 2 * std
+        img = (img - min_value) / (max_value - min_value)
+        img = torch.clamp(img, 0, 1)
+        return img
 
 
 class SenBenchBenV2Dataset:
@@ -349,6 +423,7 @@ class SenBenchBenV2Dataset:
         self.band_names = config.band_names
         self.num_classes = config.num_classes
         self.band_stats = config.band_stats
+        self.norm_form = config.norm_form if 'norm_form' in config else None
 
         if self.bands == "rgb":
             # start with rgb and extract later
@@ -357,12 +432,21 @@ class SenBenchBenV2Dataset:
             self.input_bands = self.bands
 
     def create_dataset(self):
-        train_transform = ClsDataAugmentation(
-            split="train", size=self.img_size, bands=self.bands, band_stats=self.band_stats
-        )
-        eval_transform = ClsDataAugmentation(
-            split="test", size=self.img_size, bands=self.bands, band_stats=self.band_stats
-        )
+
+        if self.norm_form == 'softcon':
+            train_transform = ClsDataAugmentationSoftCon(
+                split="train", size=self.img_size, bands=self.bands, band_stats=self.band_stats
+            )
+            eval_transform = ClsDataAugmentationSoftCon(
+                split="test", size=self.img_size, bands=self.bands, band_stats=self.band_stats
+            )
+        else:
+            train_transform = ClsDataAugmentation(
+                split="train", size=self.img_size, bands=self.bands, band_stats=self.band_stats
+            )
+            eval_transform = ClsDataAugmentation(
+                split="test", size=self.img_size, bands=self.bands, band_stats=self.band_stats
+            )
 
         dataset_train = BigEarthNetv2(
             root=self.root_dir,

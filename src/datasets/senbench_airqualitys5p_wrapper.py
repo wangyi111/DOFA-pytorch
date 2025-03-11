@@ -26,6 +26,11 @@ class SenBenchAirQualityS5P(NonGeoDataset):
         'val': 'val.csv',
         'test': 'test.csv',
     }
+    # stats for training set
+    label_stats = {
+        'no2': {'mean': 5.3167, 'std': 3.9948},
+        'o3': {'mean': 4654.2632, 'std': 2589.4207},
+    }
 
     def __init__(
         self,
@@ -61,6 +66,9 @@ class SenBenchAirQualityS5P(NonGeoDataset):
             self.pids = []
             for line in lines:
                 self.pids.append(line.strip())
+
+        self.label_mean = self.label_stats[modality]['mean']
+        self.label_std = self.label_stats[modality]['std']
 
         self.reference_date = date(1970, 1, 1)
         self.patch_area = (4*1)**2 # patchsize 4 pix, gsd 1km
@@ -145,6 +153,9 @@ class SenBenchAirQualityS5P(NonGeoDataset):
             #pdb.set_trace()
             label[label<-1e10] = np.nan
             label[label>1e10] = np.nan
+
+            label = (label - self.label_mean) / self.label_std # normalize target
+
             label = torch.from_numpy(label.astype('float32'))
 
         return label

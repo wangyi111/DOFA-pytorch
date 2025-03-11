@@ -14,7 +14,7 @@ band_bandwidths: [20, 65, 35, 30, 15, 15, 20, 115, 20, 20, 90, 180]
 band_stats:
   mean: [1353.7,1117.2,1041.8,946.5,1199.1,2003.0,2374.0,2301.2,2599.7,732.1,1820.6,1118.2]
   std: [897.3,736.0,684.8,620.0,791.9,1341.3,1595.4,1545.5,1750.1,475.1,1216.5,736.7]
-image_resolution: 224
+image_resolution: 120
 multilabel: true
 ignore_index: null
 language_embed: null

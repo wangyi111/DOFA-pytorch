@@ -45,7 +45,7 @@ def main(cfg: DictConfig):
     if cfg.task == "regression":
         model_monitor = "val_rmse"
         monitor_mode = "min"
-    elif cfg.task == "segmentation":
+    elif cfg.task == "segmentation" or cfg.task == "changedetection":
         model_monitor = "val_miou"
         monitor_mode = "max"
     else:

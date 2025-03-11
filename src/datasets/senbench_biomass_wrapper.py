@@ -67,8 +67,9 @@ class SenBenchBiomass(NonGeoDataset):
         0.00326378,
         0.00324118,
     )
-    biomass_mean = 93.8317
-    biomass_std = 110.5369
+    # stats for training set
+    biomass_mean = 92.3196 #93.8317
+    biomass_std = 117.8162 #110.5369
 
     def __init__(
         self,
@@ -182,8 +183,8 @@ class SenBenchBiomass(NonGeoDataset):
         with rasterio.open(biomass_path) as src:
             biomass = src.read(1)
             biomass = cv2.resize(biomass, (282, 282), interpolation=cv2.INTER_CUBIC)
-            biomass[np.isnan(biomass)] = 0
-            biomass = (biomass - self.biomass_mean) / self.biomass_std
+            #biomass[np.isnan(biomass)] = 0
+            biomass = (biomass - self.biomass_mean) / self.biomass_std # normalize target
             biomass = torch.from_numpy(biomass.astype("float32"))
 
         return biomass

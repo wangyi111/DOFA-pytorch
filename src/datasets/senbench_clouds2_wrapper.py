@@ -163,6 +163,59 @@ class SegDataAugmentation(torch.nn.Module):
         return x_out.squeeze(0), mask_out.squeeze(0).squeeze(0), batch["meta"]
 
 
+class SegDataAugmentationSoftCon(torch.nn.Module):
+
+    def __init__(self, split, size, band_stats):
+        super().__init__()
+
+        if band_stats is not None:
+            self.mean = band_stats['mean']
+            self.std = band_stats['std']
+        else:
+            self.mean = [0.0]
+            self.std = [1.0]
+
+        if split == "train":
+            self.transform = K.augmentation.AugmentationSequential(
+                K.augmentation.Resize(size=size, align_corners=True),
+                #K.augmentation.RandomResizedCrop(size=size, scale=(0.8,1.0)),
+                K.augmentation.RandomRotation(degrees=90, p=0.5, align_corners=True),
+                K.augmentation.RandomHorizontalFlip(p=0.5),
+                K.augmentation.RandomVerticalFlip(p=0.5),
+                data_keys=["input", "mask"],
+            )
+        else:
+            self.transform = K.augmentation.AugmentationSequential(
+                K.augmentation.Resize(size=size, align_corners=True),
+                data_keys=["input", "mask"],
+            )
+
+    @torch.no_grad()
+    def forward(self, sample: dict[str,]):
+        """Torchgeo returns a dictionary with 'image' and 'label' keys, but engine expects a tuple"""
+        sample_img,mask = sample["image"], sample["mask"]
+
+        img_bands = []
+        for b in range(13):
+            img = sample_img[b,:,:].clone()
+            ## normalize
+            img = self.normalize(img,self.mean[b],self.std[b])         
+            img_bands.append(img)
+        sample_img = torch.stack(img_bands,dim=0)
+
+        x_out, mask_out = self.transform(sample_img, mask)
+        return x_out.squeeze(0), mask_out.squeeze(0).squeeze(0), sample["meta"]
+
+    @torch.no_grad()
+    def normalize(self, img, mean, std):
+        min_value = mean - 2 * std
+        max_value = mean + 2 * std
+        img = (img - min_value) / (max_value - min_value)
+        img = torch.clamp(img, 0, 1)
+        return img
+
+
+
 class SenBenchCloudS2Dataset:
     def __init__(self, config):
         self.dataset_config = config
@@ -170,10 +223,15 @@ class SenBenchCloudS2Dataset:
         self.root_dir = config.data_path
         self.bands = config.band_names
         self.band_stats = config.band_stats
+        self.norm_form = config.norm_form if 'norm_form' in config else None
 
     def create_dataset(self):
-        train_transform = SegDataAugmentation(split="train", size=self.img_size, band_stats=self.band_stats)
-        eval_transform = SegDataAugmentation(split="test", size=self.img_size, band_stats=self.band_stats)
+        if self.norm_form == 'softcon':
+            train_transform = SegDataAugmentationSoftCon(split="train", size=self.img_size, band_stats=self.band_stats)
+            eval_transform = SegDataAugmentationSoftCon(split="test", size=self.img_size, band_stats=self.band_stats)
+        else:
+            train_transform = SegDataAugmentation(split="train", size=self.img_size, band_stats=self.band_stats)
+            eval_transform = SegDataAugmentation(split="test", size=self.img_size, band_stats=self.band_stats)
 
         dataset_train = SenBenchCloudS2(
             root=self.root_dir, split="train", bands=self.bands, transforms=train_transform
